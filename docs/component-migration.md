@@ -28,8 +28,8 @@ For the detailed input/output comparison of each legacy script and compiled comp
 | 20 | Annual Plot | Annual Plot | 8,760 values, ranges, grid/display options, run | Interactive hourly annual heatmap and PNG export |
 | 21 | Sensor Marker | Sensor Marker | Point, grid size, up vector | Upper hemisphere marker Brep |
 | 22 | Select PIT to PPFD | Select PIT to PPFD | Boolean run | Hour index, non-leap-year calendar mapping |
-| 23 | Hourly PAR | Hourly PPFD | Cache path, hour index, conversion factor | Per-sensor PPFD at selected hour |
-| 24 | PAR Each Sensor | Sensor Annual PPFD | Cache path, sensor index, conversion factor, optional point/marker | 8,760 PPFD values and optional marker |
+| 23 | Hourly PAR | Hourly PAR | Cache path, hour index, numeric/preset conversion factor | Per-sensor PPFD at selected hour and status |
+| 24 | PAR Each Sensor | PAR Each Sensor | Cache path, sensor index, numeric/preset conversion factor, optional point/marker | 8,760 PPFD values, selected point, optional marker, and status |
 | 25 | Annual Plot PPFD for sensor | Annual Plot PPFD for Sensor | 8,760 PPFD values, ranges, grid/display options, run | Interactive annual PPFD heatmap and PNG export |
 
 ## Migration rules

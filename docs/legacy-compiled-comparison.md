@@ -45,8 +45,8 @@ This matrix is the maintenance reference for the 25 legacy Grasshopper Python sc
 | # | Legacy script | Compiled component | Legacy inputs → outputs | Compiled inputs → outputs | Comparison |
 | ---: | --- | --- | --- | --- | --- |
 | 22 | `01 Select PIT to PPFD.py` | **Select PIT to PPFD** | Run → selected non-leap-year hour index | Run → selected hour index; readable date/hour | Match. Shares selection state and hour convention with Select Date and Hour, as the Python scripts share the same sticky key. |
-| 23 | `02 Hourly PAR.py` | **Hourly PPFD** | Selected-hour illuminance; conversion factor → per-sensor PPFD | Illuminance list; conversion factor → PPFD list | Match. Unit is μmol/m²/s. |
-| 24 | `03 PAR Each Sensor.py` | **PPFD Each Sensor** | Annual sensor illuminance; conversion factor; optional point/marker → 8,760 PPFD values and optional marker | Annual illuminance; conversion factor → annual PPFD | Core conversion match. Marker handling remains separate through **Sensor Marker**, making geometry output reusable. |
+| 23 | `02 Hourly PAR.py` | **Hourly PAR** | Result cache; hour index; numeric/preset factor → per-sensor PPFD | Result cache; Hour; numeric/preset Factor → PPFD; status | Match. Reads the annual cache directly and supports `electric`, `sunonly`, and `skyonly` factor presets. |
+| 24 | `03 PAR Each Sensor.py` | **PAR Each Sensor** | Result cache; sensor index; factor; optional points/marker settings → 8,760 PPFD values; sensor point; marker | Result cache; Sensor; numeric/preset Factor; optional Pts/Mark/Size/Up → PPFD; sensor point; marker; status | Match. The generic **PPFD Each Sensor** remains a separate list-conversion helper. |
 | 25 | `04 Annual Plot PPFD for sensor.py` | **Annual Plot PPFD for Sensor** | 8,760 PPFD values; ranges; grid/display options; title; run → interactive heatmap / PNG | Hourly results; R1–R4; Grid; Grid color; Name 1–5; Title; Run → status, interactive heatmap / PNG | Match. Reuses the annual-plot engine with PPFD naming and title. |
 
 ## Extra compiled helper components
@@ -59,6 +59,8 @@ These do not replace a specific single legacy script; they make the compiled wor
 | **Radiance Status** | Optional Radiance bin → availability; `rcontrib` path. |
 | **Annual Simulation Progress** | Result folder; refresh → part progress; completed part count; status. |
 | **Lux to PPFD** | One illuminance value; factor → PPFD. |
+| **Hourly PPFD** | Illuminance list; numeric factor → PPFD list; helper for already-extracted point-in-time values. |
+| **PPFD Each Sensor** | Annual illuminance list; numeric factor → annual PPFD list; helper for already-extracted sensor values. |
 | **Annual DLI** | 8,760 PPFD values; timestep → 365 DLI values; mean DLI. |
 | **DLI Target** | Daily DLI; target → sufficient flags; deficit; sufficient-day count. |
 | **Lighting Energy** | Power schedule; timestep → kWh; operating hours. |

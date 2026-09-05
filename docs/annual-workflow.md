@@ -151,6 +151,8 @@ Connect the cache to either illuminance reader:
 | `Illuminance Point in Time` | `hour` | One lux value for every sensor at the selected hour. |
 | `Illuminance Sensor` | `sensor` | 8,760 lux values for one selected sensor. |
 
+For legacy-compatible PPFD reading directly from the cache, use **Hourly PAR** (cache + annual hour index) or **PAR Each Sensor** (cache + sensor index). Their conversion-factor input accepts a number or the legacy presets `electric` (0.015), `sunonly` (0.0205), and `skyonly` (0.0135). The generic **Hourly PPFD** and **PPFD Each Sensor** components remain useful when illuminance values have already been extracted.
+
 Use **Sensor Marker** to create an upper-hemisphere marker at a selected sensor point. Its inputs are point, grid size, and optional `Up` vector.
 
 ### 5. Review one sensor across the year
