@@ -54,7 +54,17 @@ public sealed class AnnualSimulationComponent : GH_Component
             if (run && resolvedBin is null) throw new DirectoryNotFoundException("Radiance executables were not found. Provide the Radiance bin folder.");
             var radianceLib = resolvedBin is null ? null : Path.Combine(Directory.GetParent(resolvedBin)!.FullName, "lib");
             if (run && (radianceLib is null || !File.Exists(Path.Combine(radianceLib, "reinsrc.cal")) || !File.Exists(Path.Combine(radianceLib, "reinhart.cal")))) throw new DirectoryNotFoundException("Radiance calculation library was not found beside the Radiance bin folder.");
-            for (var part = 0; part < partCount; part++) { var partPoints = split ? points.Where((_, index) => index % partCount == part).ToList() : points; var pointFile = split ? $"0_part{part}.pts" : "0.pts"; if (split) File.WriteAllLines(Path.Combine(root, pointFile), partPoints); var batch = Path.Combine(root, split ? $"run_part{part}.bat" : "run_annual_single.bat"); var weather = Path.GetFileName(epw); File.WriteAllLines(batch, Commands(weather, pointFile, partPoints.Count, sky == 4 ? 4 : 1, parameters, directSun, perPartCpu, part, resolvedBin, radianceLib)); batches.Add(batch); if (run) Process.Start(new ProcessStartInfo("cmd.exe", $"/c start cmd /c \"{Path.GetFileName(batch)}\"") { WorkingDirectory = root, UseShellExecute = true }); }
+            for (var part = 0; part < partCount; part++)
+            {
+                // Preserve the legacy Python ordering: each part owns a contiguous sensor block.
+                var partPoints = split ? ContiguousPart(points, part, partCount) : points;
+                var pointFile = split ? $"0_part{part}.pts" : "0.pts";
+                if (split) File.WriteAllLines(Path.Combine(root, pointFile), partPoints);
+                var batch = Path.Combine(root, split ? $"run_part{part}.bat" : "run_annual_single.bat"); var weather = Path.GetFileName(epw);
+                File.WriteAllLines(batch, Commands(weather, pointFile, partPoints.Count, sky == 4 ? 4 : 1, parameters, directSun, perPartCpu, part, resolvedBin, radianceLib));
+                batches.Add(batch);
+                if (run) Process.Start(new ProcessStartInfo("cmd.exe", $"/c start cmd /c \"{Path.GetFileName(batch)}\"") { WorkingDirectory = root, UseShellExecute = true });
+            }
             da.SetData(0, root); da.SetDataList(1, batches); da.SetData(2, run ? $"Launched {batches.Count} annual simulation job(s)." : $"Prepared {batches.Count} batch file(s). Set Run True to launch.");
         }
         catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
@@ -66,6 +76,14 @@ public sealed class AnnualSimulationComponent : GH_Component
         Params.Output[2].AddVolatileData(new global::Grasshopper.Kernel.Data.GH_Path(0), 0, new global::Grasshopper.Kernel.Types.GH_String(message));
     }
     private static string ToRadiancePoint(Point3d point) => string.Format(CultureInfo.InvariantCulture, "{0:G17} {1:G17} {2:G17} 0 0 1", point.X, point.Y, point.Z);
+    private static List<string> ContiguousPart(List<string> points, int part, int partCount)
+    {
+        var baseCount = points.Count / partCount;
+        var remainder = points.Count % partCount;
+        var count = baseCount + (part < remainder ? 1 : 0);
+        var start = part * baseCount + Math.Min(part, remainder);
+        return points.GetRange(start, count);
+    }
     private static string? FindRadianceBin(string requestedFolder)
     {
         var candidates = new List<string>();
