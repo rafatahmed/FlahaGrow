@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Globalization;
 using System.Text.Json;
 using Grasshopper.Kernel;
 
@@ -27,6 +28,28 @@ public sealed class AnnualResultCacheComponent : GH_Component
         }
         catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
     }
-    private static List<float[]> ReadMatrix(string path) => File.ReadLines(path).Where(line => line.Length > 0 && !line.StartsWith("#") && !line.Contains('=' )).Select(line => line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Select(float.Parse).ToArray()).Where(row => row.Length > 0).ToList();
+    private static List<float[]> ReadMatrix(string path)
+    {
+        var matrix = new List<float[]>();
+        var inData = false;
+        foreach (var line in File.ReadLines(path))
+        {
+            var text = line.Trim();
+            if (!inData)
+            {
+                if (text.Length == 0) inData = true;
+                continue;
+            }
+            if (text.Length == 0) continue;
+            var tokens = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            var row = new float[tokens.Length];
+            for (var index = 0; index < tokens.Length; index++)
+                if (!float.TryParse(tokens[index], NumberStyles.Float, CultureInfo.InvariantCulture, out row[index]))
+                    throw new InvalidDataException($"Non-numeric annual-result value in {Path.GetFileName(path)} after the Radiance header.");
+            matrix.Add(row);
+        }
+        if (!inData || matrix.Count == 0) throw new InvalidDataException($"No annual-result matrix data was found in {Path.GetFileName(path)}.");
+        return matrix;
+    }
     private sealed record CacheMeta(int Sensors, int Hours, int Ncomp, string Order);
 }
