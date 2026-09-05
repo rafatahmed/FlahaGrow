@@ -34,6 +34,12 @@ public sealed class AnnualSimulationComponent : GH_Component
             var gridFolder = Path.Combine(root, "model", "grid"); var grid = Path.Combine(gridFolder, "0.pts"); var scene = Path.Combine(root, "model", "scene");
             Directory.CreateDirectory(gridFolder);
             if (sensorPoints.Count > 0) File.WriteAllLines(grid, sensorPoints.Select(ToRadiancePoint));
+            else if (!File.Exists(grid))
+            {
+                // Match the legacy Python component: ModelToRad may name its only sensor grid differently.
+                var sourceGrid = Directory.EnumerateFiles(gridFolder, "*.pts").OrderBy(path => path, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+                if (sourceGrid is not null) File.Move(sourceGrid, grid);
+            }
             foreach (var file in new[] { grid, Path.Combine(scene, "envelope.rad"), Path.Combine(scene, "envelope.mat"), Path.Combine(scene, "envelope.blk") }) if (!File.Exists(file)) throw new FileNotFoundException($"Required annual-simulation file was not found: {file}");
             Directory.CreateDirectory(root); File.Copy(epw, Path.Combine(root, Path.GetFileName(epw)), true); foreach (var file in new[] { grid, Path.Combine(scene, "envelope.rad"), Path.Combine(scene, "envelope.mat"), Path.Combine(scene, "envelope.blk") }) File.Copy(file, Path.Combine(root, Path.GetFileName(file)), true);
             File.WriteAllText(Path.Combine(root, "skyglow.rad"), "#@rfluxmtx u=+Y h=u\nvoid glow ground_glow\n0\n0\n4 1 1 1 0\nground_glow source ground\n0\n0\n4 0 0 -1 180\n#@rfluxmtx u=+Y h=r1\nvoid glow sky_glow\n0\n0\n4 1 1 1 0\nsky_glow source sky\n0\n0\n4 0 0 1 180\n");
