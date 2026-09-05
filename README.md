@@ -26,6 +26,7 @@ src/
 docs/
   project-frame.md                    Scope, workflow, conventions, roadmap
   annual-workflow.md                  Tested annual Radiance workflow and troubleshooting
+  legacy-compiled-comparison.md       Legacy/compiled input-output comparison matrix
 ```
 
 ## Requirements
@@ -45,6 +46,7 @@ docs/
 6. Convert illuminance to PPFD and calculate DLI with the Metrics components.
 
 For the required ModelToRad folder structure, annual command sequence, cache format, progress monitoring, visualisation guidance, and tested error resolutions, see [the annual workflow guide](docs/annual-workflow.md).
+For legacy script names alongside their compiled components and exact input/output comparison, see [the comparison matrix](docs/legacy-compiled-comparison.md).
 
 Generated simulation results are deliberately excluded from Git; retain only reusable code and library assets in commits.
 

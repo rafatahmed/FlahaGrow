@@ -2,6 +2,8 @@
 
 This document is the implementation contract for the compiled FlahaGrow Grasshopper plugin. Each legacy Grasshopper Python component remains the behavioural reference until the corresponding compiled component is tested in Rhino.
 
+For the detailed input/output comparison of each legacy script and compiled component, see [legacy-compiled-comparison.md](legacy-compiled-comparison.md).
+
 | # | Legacy script | Compiled component | Required inputs | Required outputs / effects |
 | ---: | --- | --- | --- | --- |
 | 1 | `01 Working Directory` | Simulation Paths | Root folder; six output-folder toggles | Root and selected PIT/annual/spectral folders; creates missing folders |
