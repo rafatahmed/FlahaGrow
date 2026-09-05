@@ -41,12 +41,13 @@ public sealed class IesToRadianceComponent : GH_Component
         name = string.IsNullOrWhiteSpace(name) ? Path.GetFileNameWithoutExtension(ies) : name.Trim();
         var (nr, ng, nb) = Normalize(r, g, b);
         project = Path.GetFullPath(project);
-        var outputFolder = Path.Combine(Directory.GetParent(project)?.FullName ?? project, "Luminaire_files");
+        var outputFolder = Path.Combine(project, "Luminaire_files");
         Directory.CreateDirectory(outputFolder);
         var command = $"ies2rad -o {name} -t default{(multiplier != 0 ? $" -m {multiplier}" : string.Empty)} {ies}";
         if (!run) { dataAccess.SetData(2, $"Waiting for Run. {command}"); return; }
         try
         {
+            var existingFiles = Directory.EnumerateFiles(outputFolder).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var executable = FindIes2Rad(radianceBin);
             if (executable is null) throw new FileNotFoundException("ies2rad.exe was not found. Provide the Radiance bin folder.");
             var start = new ProcessStartInfo(executable) { WorkingDirectory = outputFolder, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
@@ -56,8 +57,11 @@ public sealed class IesToRadianceComponent : GH_Component
             using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start ies2rad.");
             var stdout = process.StandardOutput.ReadToEnd(); var stderr = process.StandardError.ReadToEnd(); process.WaitForExit();
             if (process.ExitCode != 0) throw new InvalidOperationException($"ies2rad failed: {stderr}");
-            var radFiles = Directory.EnumerateFiles(outputFolder, $"{name}*.rad").ToList();
-            var datFiles = Directory.EnumerateFiles(outputFolder, $"{name}*.dat").ToList();
+            var generatedFiles = Directory.EnumerateFiles(outputFolder).Where(path => !existingFiles.Contains(path)).ToList();
+            var radFiles = generatedFiles.Where(path => string.Equals(Path.GetExtension(path), ".rad", StringComparison.OrdinalIgnoreCase)).ToList();
+            var datFiles = generatedFiles.Where(path => string.Equals(Path.GetExtension(path), ".dat", StringComparison.OrdinalIgnoreCase)).ToList();
+            if (radFiles.Count == 0) radFiles = Directory.EnumerateFiles(outputFolder, "*.rad").OrderByDescending(File.GetLastWriteTimeUtc).Take(1).ToList();
+            if (datFiles.Count == 0) datFiles = Directory.EnumerateFiles(outputFolder, "*.dat").OrderByDescending(File.GetLastWriteTimeUtc).Take(1).ToList();
             var datPath = File.Exists(dat) ? Path.GetFullPath(dat).Replace('\\', '/') : datFiles.FirstOrDefault()?.Replace('\\', '/');
             foreach (var radFile in radFiles) RewriteRad(radFile, nr, ng, nb, datPath);
             dataAccess.SetDataList(0, radFiles); dataAccess.SetDataList(1, datFiles);
