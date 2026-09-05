@@ -18,11 +18,11 @@ This document is the implementation contract for the compiled FlahaGrow Grasshop
 | 12 | IES to Rad | Convert IES to Radiance | IES path/name, RGB, multiplier, project folder, run | `.rad`/`.dat` paths, log; runs `ies2rad` |
 | 13 | Lighting Geometry | Place Luminaires | Points, rotations, `.rad` paths | `xform` lines |
 | 14 | Compile Luminaries | Compile Luminaires | xform lines, project folder, write | `luminaries.rad` path |
-| 15 | Annual Simulation | Run Annual Simulation | Folder, EPW, sky subdivision, quality, run | Radiance batch files and result folder |
-| 16 | Load Annual Result | Build Annual Cache | Result folder, build | Merged `.ill`, `.f32`, `.meta.json` |
-| 17 | selected_hour_index | Select Annual Hour | Run | Hour index, non-leap-year calendar mapping |
-| 18 | Illuminance Pointintime | Read Illuminance | Cache path, mode, sensor/hour index, run | Hourly sensor series or sensor row |
-| 19 | Illuminance sensor | Read Illuminance (legacy) | Same as #18 | Same contract as #18 |
+| 15 | Annual Simulation | Annual Simulation | ModelToRad project folder, EPW, sky subdivision, detail, run, optional points/bin folder | Four/single Radiance batch jobs, progress logs, and result folder; preserves sensor order across parts |
+| 16 | Load Annual Result | Load Annual Result | Result folder, build | Merged `.ill`, Python-compatible `.f32` and lowercase-key `.meta.json` |
+| 17 | selected_hour_index | Select Date and Hour | Boolean run | Hour index, non-leap-year calendar mapping |
+| 18 | Illuminance Pointintime | Illuminance Point in Time | Cache path, `hour`/`sensor` mode, index, run | Hourly sensor series or one hour across all sensors |
+| 19 | Illuminance sensor | Illuminance Sensor | Same as #18 | Same data contract and bounds validation as #18 |
 | 20 | Annual Plot | Annual Heatmap | 8,760 values, ranges, display options, run | Interactive hourly annual heatmap / PNG export |
 | 21 | Sensor Marker | Sensor Marker | Point, grid size, up vector | Upper hemisphere marker Brep |
 | 22 | Select PIT to PPFD | Select PPFD Hour | Run | Hour index, non-leap-year calendar mapping |
@@ -37,3 +37,11 @@ This document is the implementation contract for the compiled FlahaGrow Grasshop
 - Use portable paths returned by **Simulation Paths**. Do not reintroduce fixed `C:\` library locations.
 - The annual cache format is little-endian `float32`, row-major **hours × sensors**, with `sensors`, `hours`, and `ncomp` in the sibling metadata JSON.
 - Annual execution must support both a single `annualRfinal_part0.ill` result and the four-part result set.
+- For split annual jobs, point blocks must be contiguous and merge in part order. Round-robin splitting breaks the relationship between cache columns and sensor-grid positions.
+- Radiance result parsing must skip all nonnumeric header lines, not only lines above the first blank line.
+
+## Additional compiled support components
+
+| Component | Purpose |
+| --- | --- |
+| Annual Simulation Progress | Reads the latest stage from `annual_progress_partN.log` files and counts final annual-result files. Use a Grasshopper Timer for live updates. |

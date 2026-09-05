@@ -4,7 +4,7 @@
 
 The compiled add-on is in `src/FlahaGrow.Grasshopper`. It targets **Rhino 8 on Windows** and `net7.0-windows`, and builds a Grasshopper assembly named `FlahaGrow.gha`.
 
-The existing `src/Code` files are Grasshopper Python/IronPython components. They are retained as the working reference implementation; they are not yet compiled-plugin components. Port each feature deliberately so its inputs, outputs, units, and existing definitions remain traceable.
+The existing `src/Code` files are Grasshopper Python/IronPython components. They remain the behavioural reference for every compiled port and for components not yet validated in Rhino. Port each feature deliberately so its inputs, outputs, units, data ordering, and existing definitions remain traceable.
 
 For the legacy material components, add optional Grasshopper inputs named `_rad_materials_folder` or `_rad_glazing_folder`, supplied by **Simulation Paths**. As an alternative, set `FLAHAGROW_RAD_MATERIALS_DIR` or `FLAHAGROW_RAD_GLAZING_DIR`. Machine-specific `C:\RadMaterials` and `C:\RadGlazing` defaults are no longer used.
 
@@ -32,7 +32,7 @@ The resulting add-on is `src/FlahaGrow.Grasshopper/bin/Debug/net7.0-windows/Flah
 
 1. Close Rhino before replacing a loaded `.gha` file.
 2. Copy the generated `FlahaGrow.gha` into the Grasshopper Libraries folder, normally `%AppData%\Grasshopper\Libraries`.
-3. Start Rhino, open Grasshopper, and find the **FlahaGrow** category. The initial release exposes **Setup → Simulation Paths/Radiance Status** and **Metrics → Lux to PPFD/Annual DLI/DLI Target/Lighting Energy**.
+3. Start Rhino, open Grasshopper, and find the **FlahaGrow** category. The plugin provides **Setup**, **Materials**, **Electric Light**, **Annual**, and **Metrics** tabs. The Annual tab includes annual Radiance execution, cache loading, progress monitoring, date/hour selection, illuminance readers, and sensor markers.
 4. For debugging, configure Visual Studio to start `Rhino.exe`, build the Debug configuration, then attach/run Rhino before opening Grasshopper.
 
 Do not copy `Grasshopper.dll`, `GH_IO.dll`, or `RhinoCommon.dll` into the Libraries folder; Rhino supplies those host assemblies.
@@ -55,7 +55,13 @@ The generated `.yak` file remains under `artifacts/`, which is intentionally unt
 
 1. Build without warnings or errors.
 2. Load `FlahaGrow.gha` in Grasshopper with no assembly-load messages.
-3. Confirm the component appears under **FlahaGrow → Metrics**.
+3. Confirm the component appears under its expected **FlahaGrow** tab.
 4. Test Lux to PPFD with 1,000 lux and a 0.0185 factor; expected PPFD is 18.5 μmol/m²/s.
 5. Test Annual DLI with 8,760 values of 100 PPFD; every daily result should be 8.64 mol/m²/day.
 6. For each ported simulation feature, execute a small point-in-time Radiance case and an annual test containing 8,760 hourly values and 365 DLI results.
+7. For Annual Simulation, verify that split point files retain their original contiguous sensor ordering; otherwise the merged result values will not align with the visualised grid.
+8. Verify both Python-generated and compiled `annualRfinal.meta.json` files. The reader must accept lowercase `sensors`, `hours`, and `ncomp` fields and a little-endian row-major `float32` cache.
+
+## Annual workflow notes
+
+See [annual-workflow.md](annual-workflow.md) for the runtime project contract, generated Radiance files, progress logs, cache files, component connections, and troubleshooting. Do not use a blank-line-only parser for Radiance matrix headers: valid headers can include blank lines before their final metadata and numeric matrix rows.
