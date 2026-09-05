@@ -7,7 +7,7 @@ namespace FlahaGrow.Grasshopper.Components;
 /// <summary>Builds the legacy row-major annual float cache from one or four Radiance .ill files.</summary>
 public sealed class AnnualResultCacheComponent : GH_Component
 {
-    public AnnualResultCacheComponent() : base("Build Annual Cache", "Annual Cache", "Merges annualRfinal part files and writes the FlahaGrow .f32 plus metadata cache.", "FlahaGrow", "Annual") { }
+    public AnnualResultCacheComponent() : base("Load Annual Result", "Load Result", "Merges annualRfinal part files and writes the FlahaGrow .f32 plus metadata cache.", "FlahaGrow", "Annual") { }
     public override Guid ComponentGuid => new("0e5f7114-fbb9-4a77-a3f4-40ccd0c0c258");
     protected override void RegisterInputParams(GH_InputParamManager p) { p.AddTextParameter("Result folder", "Folder", "Folder containing annualRfinal_part*.ill files.", GH_ParamAccess.item); p.AddBooleanParameter("Build", "Build", "Build or read the cache.", GH_ParamAccess.item, false); }
     protected override void RegisterOutputParams(GH_OutputParamManager p) { p.AddTextParameter("Result cache", "F32", "Little-endian float32 cache path.", GH_ParamAccess.item); p.AddIntegerParameter("Sensors", "S", "Sensor count.", GH_ParamAccess.item); p.AddIntegerParameter("Hours", "H", "Hour count.", GH_ParamAccess.item); p.AddTextParameter("Status", "Status", "Cache status.", GH_ParamAccess.item); }
