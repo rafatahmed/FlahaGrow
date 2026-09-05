@@ -1,6 +1,7 @@
-using System.Buffers.Binary;
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components;
@@ -21,6 +22,7 @@ public sealed class AnnualResultCacheComponent : GH_Component
             if (!build) { if (!File.Exists(raw) || !File.Exists(meta)) { da.SetData(3, "No cache yet — set Build True."); return; } var cached = JsonSerializer.Deserialize<CacheMeta>(File.ReadAllText(meta))!; da.SetData(0, raw); da.SetData(1, cached.Sensors); da.SetData(2, cached.Hours); da.SetData(3, "Cache exists"); return; }
             var parts = Directory.EnumerateFiles(folder, "annualRfinal_part*.ill").OrderBy(path => path).ToList(); if (parts.Count == 0) throw new FileNotFoundException("No annualRfinal_part*.ill files were found.");
             var matrices = parts.Select(ReadMatrix).ToList(); var hours = matrices[0].Count; if (matrices.Any(matrix => matrix.Count != hours)) throw new InvalidDataException("Part files have different hour counts.");
+            if (matrices.Any(matrix => matrix.Any(row => row.Length != matrix[0].Length))) throw new InvalidDataException("A part file contains rows with inconsistent sensor counts.");
             var sensors = matrices.Sum(matrix => matrix[0].Length); using var stream = File.Create(raw);
             for (var hour = 0; hour < hours; hour++) foreach (var matrix in matrices) foreach (var value in matrix[hour]) stream.Write(BitConverter.GetBytes(value));
             File.WriteAllText(meta, JsonSerializer.Serialize(new CacheMeta(sensors, hours, 1, "row-major hours x sensors"), new JsonSerializerOptions { WriteIndented = true }));
@@ -31,16 +33,10 @@ public sealed class AnnualResultCacheComponent : GH_Component
     private static List<float[]> ReadMatrix(string path)
     {
         var matrix = new List<float[]>();
-        var inData = false;
         foreach (var line in File.ReadLines(path))
         {
             var text = line.Trim();
-            if (!inData)
-            {
-                if (text.Length == 0) inData = true;
-                continue;
-            }
-            if (text.Length == 0) continue;
+            if (text.Length == 0 || !NumericLine.IsMatch(text)) continue;
             var tokens = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
             var row = new float[tokens.Length];
             for (var index = 0; index < tokens.Length; index++)
@@ -48,8 +44,13 @@ public sealed class AnnualResultCacheComponent : GH_Component
                     throw new InvalidDataException($"Non-numeric annual-result value in {Path.GetFileName(path)} after the Radiance header.");
             matrix.Add(row);
         }
-        if (!inData || matrix.Count == 0) throw new InvalidDataException($"No annual-result matrix data was found in {Path.GetFileName(path)}.");
+        if (matrix.Count == 0) throw new InvalidDataException($"No annual-result matrix data was found in {Path.GetFileName(path)}.");
         return matrix;
     }
-    private sealed record CacheMeta(int Sensors, int Hours, int Ncomp, string Order);
+    private static readonly Regex NumericLine = new(@"^[\s+\-.0-9eE]+$", RegexOptions.Compiled);
+    private sealed record CacheMeta(
+        [property: JsonPropertyName("sensors")] int Sensors,
+        [property: JsonPropertyName("hours")] int Hours,
+        [property: JsonPropertyName("ncomp")] int Ncomp,
+        [property: JsonPropertyName("order")] string Order);
 }
