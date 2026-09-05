@@ -1,0 +1,6 @@
+name: FlahaGrow
+version: 0.1.0
+authors:
+  - Rafat A. Al Khashan
+description: Annual greenhouse-lighting simulation components for Grasshopper.
+url: https://github.com/rafatahmed/FlahaGrow

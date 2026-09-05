@@ -48,6 +48,12 @@ Generated simulation results are deliberately excluded from Git; retain only reu
 
 The current repository contains the three-channel/RGB workflow. Hyperspectral simulation is a planned extension; its interfaces and validation criteria are recorded in [the project frame](docs/project-frame.md).
 
+## Compiled Grasshopper plugin
+
+`src/FlahaGrow.Grasshopper` is the Rhino 8 / .NET 7 compiled-plugin scaffold. It produces a `.gha` assembly with the **FlahaGrow** Grasshopper category. The first component, **Lux to PPFD**, is a small, functional reference component and a starting point for porting the legacy Python components.
+
+See [the plugin development guide](docs/grasshopper-plugin.md) to build, install locally, debug, and package the add-on.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development and validation guidance.

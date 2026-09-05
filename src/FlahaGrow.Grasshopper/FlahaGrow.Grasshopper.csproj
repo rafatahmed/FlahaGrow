@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net7.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>FlahaGrow</AssemblyName>
+    <TargetExt>.gha</TargetExt>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <Version>0.1.0</Version>
+    <Authors>Rafat A. Al Khashan</Authors>
+    <Description>Annual greenhouse-lighting simulation components for Grasshopper.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Grasshopper" Version="8.34.26223.11001" />
+  </ItemGroup>
+</Project>

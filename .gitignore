@@ -28,6 +28,11 @@ cache/
 *.meta.json
 run_annual_*.bat
 
+# .NET / Grasshopper plugin build outputs
+**/bin/
+**/obj/
+artifacts/
+
 # IDE and OS metadata
 .vs/
 .vscode/
