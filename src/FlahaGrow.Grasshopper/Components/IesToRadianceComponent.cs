@@ -21,6 +21,7 @@ public sealed class IesToRadianceComponent : GH_Component
         parameters.AddTextParameter("Project folder", "Project", "Simulation project folder; Luminaire_files is created beside it.", GH_ParamAccess.item);
         parameters.AddTextParameter("DAT file", "DAT", "Optional replacement data-file path.", GH_ParamAccess.item); parameters[7].Optional = true;
         parameters.AddBooleanParameter("Run", "Run", "Run ies2rad and rewrite generated .rad files.", GH_ParamAccess.item, false);
+        parameters.AddTextParameter("Radiance bin folder", "Bin", "Optional folder containing ies2rad.exe. Leave empty for automatic detection.", GH_ParamAccess.item); parameters[9].Optional = true;
     }
 
     protected override void RegisterOutputParams(GH_OutputParamManager parameters)
@@ -32,10 +33,10 @@ public sealed class IesToRadianceComponent : GH_Component
 
     protected override void SolveInstance(IGH_DataAccess dataAccess)
     {
-        string ies = string.Empty, name = string.Empty, project = string.Empty, dat = string.Empty;
+        string ies = string.Empty, name = string.Empty, project = string.Empty, dat = string.Empty, radianceBin = string.Empty;
         double r = 1, g = 1, b = 1, multiplier = 0; var run = false;
         if (!dataAccess.GetData(0, ref ies) || !dataAccess.GetData(6, ref project)) return;
-        dataAccess.GetData(1, ref name); dataAccess.GetData(2, ref r); dataAccess.GetData(3, ref g); dataAccess.GetData(4, ref b); dataAccess.GetData(5, ref multiplier); dataAccess.GetData(7, ref dat); dataAccess.GetData(8, ref run);
+        dataAccess.GetData(1, ref name); dataAccess.GetData(2, ref r); dataAccess.GetData(3, ref g); dataAccess.GetData(4, ref b); dataAccess.GetData(5, ref multiplier); dataAccess.GetData(7, ref dat); dataAccess.GetData(8, ref run); dataAccess.GetData(9, ref radianceBin);
         if (!File.Exists(ies)) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "IES path was not found."); return; }
         name = string.IsNullOrWhiteSpace(name) ? Path.GetFileNameWithoutExtension(ies) : name.Trim();
         var (nr, ng, nb) = Normalize(r, g, b);
@@ -46,7 +47,9 @@ public sealed class IesToRadianceComponent : GH_Component
         if (!run) { dataAccess.SetData(2, $"Waiting for Run. {command}"); return; }
         try
         {
-            var start = new ProcessStartInfo("ies2rad") { WorkingDirectory = outputFolder, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+            var executable = FindIes2Rad(radianceBin);
+            if (executable is null) throw new FileNotFoundException("ies2rad.exe was not found. Provide the Radiance bin folder.");
+            var start = new ProcessStartInfo(executable) { WorkingDirectory = outputFolder, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
             start.ArgumentList.Add("-o"); start.ArgumentList.Add(name); start.ArgumentList.Add("-t"); start.ArgumentList.Add("default");
             if (multiplier != 0) { start.ArgumentList.Add("-m"); start.ArgumentList.Add(multiplier.ToString(System.Globalization.CultureInfo.InvariantCulture)); }
             start.ArgumentList.Add(ies);
@@ -67,6 +70,15 @@ public sealed class IesToRadianceComponent : GH_Component
     {
         var total = r * .265 + g * .67 + b * .065;
         return total <= 0 ? (1, 1, 1) : (r * .265 / total, g * .67 / total, b * .065 / total);
+    }
+    private static string? FindIes2Rad(string binFolder)
+    {
+        var candidates = new List<string>();
+        if (!string.IsNullOrWhiteSpace(binFolder)) candidates.Add(Path.Combine(binFolder, "ies2rad.exe"));
+        candidates.AddRange((Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries).Select(folder => Path.Combine(folder.Trim(), "ies2rad.exe")));
+        candidates.Add(@"C:\Program Files\ladybug_tools\radiance\bin\ies2rad.exe");
+        candidates.Add(@"C:\Radiance\bin\ies2rad.exe");
+        return candidates.FirstOrDefault(File.Exists);
     }
     private static void RewriteRad(string path, double r, double g, double b, string? datPath)
     {
