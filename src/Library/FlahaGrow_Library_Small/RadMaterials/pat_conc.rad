@@ -1,0 +1,13 @@
+# Descriptions for concrete surfaces at cross-aisle and entries,
+# differently oriented scoring patterns, all have a dirty-ness for
+# added reality.
+
+void brightfunc pat_conc
+4 dirt dirt.cal -s .8
+0
+1 .6
+
+pat_conc plastic pat_conc
+0
+0
+5 .6 .6 .6     .03     .15

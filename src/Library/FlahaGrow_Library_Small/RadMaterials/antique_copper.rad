@@ -1,0 +1,9 @@
+# From the Radiance book, page 70
+# Antique copper material, 
+#
+
+void metal antique_copper
+0
+0
+5 .136 .102 .083 .3 .2
+

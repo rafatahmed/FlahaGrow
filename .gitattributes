@@ -1,0 +1,7 @@
+* text=auto eol=lf
+
+*.bmp binary
+*.ies binary
+*.dat binary
+*.rad text
+*.mat text

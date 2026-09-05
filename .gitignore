@@ -1,0 +1,37 @@
+# Python / IronPython scratch files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Rhino and Grasshopper autosaves/backups
+*.3dm.bak
+*.3dm~
+*.gh.bak
+*.ghx.bak
+*.ghuser
+*.tmp
+
+# Simulation outputs and local working directories
+point_in_time_illuminance/
+point_in_time_render/
+annual_illuminance/
+annual_render/
+annual_results/
+results/
+cache/
+*.hdr
+*.pic
+*.ill
+*.mtx
+*.oct
+*.amb
+*.meta.json
+run_annual_*.bat
+
+# IDE and OS metadata
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
