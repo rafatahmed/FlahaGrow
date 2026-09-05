@@ -153,6 +153,10 @@ Connect the cache to either illuminance reader:
 
 Use **Sensor Marker** to create an upper-hemisphere marker at a selected sensor point. Its inputs are point, grid size, and optional `Up` vector.
 
+### 5. Review one sensor across the year
+
+Use **Annual Plot** for any 8,760-value annual series, or **Annual Plot PPFD for Sensor** after `Sensor Annual PPFD`. Both retain the legacy 365-day × 24-hour classified heatmap, threshold buckets, grid modes, hover readout, and PNG export. **Select PIT to PPFD** is the PPFD-named counterpart to the shared date/hour selector and returns the same annual hour index.
+
 ## Visualisation guidance
 
 - A point-in-time result is a discrete sensor-grid sample, not a smooth daylight field. Cell-to-cell changes are expected near framing members and direct-sun patches.

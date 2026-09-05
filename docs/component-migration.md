@@ -23,12 +23,12 @@ This document is the implementation contract for the compiled FlahaGrow Grasshop
 | 17 | selected_hour_index | Select Date and Hour | Boolean run | Hour index, non-leap-year calendar mapping |
 | 18 | Illuminance Pointintime | Illuminance Point in Time | Cache path, `hour`/`sensor` mode, index, run | Hourly sensor series or one hour across all sensors |
 | 19 | Illuminance sensor | Illuminance Sensor | Same as #18 | Same data contract and bounds validation as #18 |
-| 20 | Annual Plot | Annual Heatmap | 8,760 values, ranges, display options, run | Interactive hourly annual heatmap / PNG export |
+| 20 | Annual Plot | Annual Plot | 8,760 values, ranges, grid/display options, run | Interactive hourly annual heatmap and PNG export |
 | 21 | Sensor Marker | Sensor Marker | Point, grid size, up vector | Upper hemisphere marker Brep |
-| 22 | Select PIT to PPFD | Select PPFD Hour | Run | Hour index, non-leap-year calendar mapping |
+| 22 | Select PIT to PPFD | Select PIT to PPFD | Boolean run | Hour index, non-leap-year calendar mapping |
 | 23 | Hourly PAR | Hourly PPFD | Cache path, hour index, conversion factor | Per-sensor PPFD at selected hour |
 | 24 | PAR Each Sensor | Sensor Annual PPFD | Cache path, sensor index, conversion factor, optional point/marker | 8,760 PPFD values and optional marker |
-| 25 | Annual Plot PPFD for sensor | Annual PPFD Heatmap | 8,760 PPFD values, ranges, display options, run | Interactive annual PPFD heatmap / PNG export |
+| 25 | Annual Plot PPFD for sensor | Annual Plot PPFD for Sensor | 8,760 PPFD values, ranges, grid/display options, run | Interactive annual PPFD heatmap and PNG export |
 
 ## Migration rules
 
