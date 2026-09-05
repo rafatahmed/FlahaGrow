@@ -49,6 +49,12 @@ public sealed class LuxToPpfdComponent : GH_Component
 
         dataAccess.GetData(1, ref conversionFactor);
 
+        if (illuminance < 0)
+        {
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Illuminance must be zero or greater.");
+            return;
+        }
+
         if (conversionFactor < 0)
         {
             AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Conversion factor must be zero or greater.");

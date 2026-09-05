@@ -18,7 +18,9 @@ from System.Windows.Forms import DataGridViewColumnHeadersHeightSizeMode, Paddin
 
 
 
-rad_folder = r"C:\RadMaterials"
+rad_folder = str(globals().get("_rad_materials_folder") or os.environ.get("FLAHAGROW_RAD_MATERIALS_DIR", "")).strip()
+if not os.path.isdir(rad_folder):
+    raise ValueError("Set _rad_materials_folder or FLAHAGROW_RAD_MATERIALS_DIR to a valid RadMaterials folder.")
 
 def parse_rad_file(filepath):
     with open(filepath, 'r') as file:

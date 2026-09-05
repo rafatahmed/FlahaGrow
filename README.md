@@ -50,7 +50,7 @@ The current repository contains the three-channel/RGB workflow. Hyperspectral si
 
 ## Compiled Grasshopper plugin
 
-`src/FlahaGrow.Grasshopper` is the Rhino 8 / .NET 7 compiled-plugin scaffold. It produces a `.gha` assembly with the **FlahaGrow** Grasshopper category. The first component, **Lux to PPFD**, is a small, functional reference component and a starting point for porting the legacy Python components.
+`src/FlahaGrow.Grasshopper` is the Rhino 8 / .NET 7 compiled plugin. It produces a `.gha` assembly with the **FlahaGrow** Grasshopper category and provides portable project/library setup, Radiance availability checks, Lux→PPFD conversion, annual DLI aggregation, DLI target assessment, and lighting-energy calculation.
 
 See [the plugin development guide](docs/grasshopper-plugin.md) to build, install locally, debug, and package the add-on.
 

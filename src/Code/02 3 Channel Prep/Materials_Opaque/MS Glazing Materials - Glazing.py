@@ -17,7 +17,9 @@ from System.Windows.Forms import DataGridViewColumnHeadersHeightSizeMode, Paddin
 
 
 
-glazing_folder = r"C:\RadGlazing"
+glazing_folder = str(globals().get("_rad_glazing_folder") or os.environ.get("FLAHAGROW_RAD_GLAZING_DIR", "")).strip()
+if not os.path.isdir(glazing_folder):
+    raise ValueError("Set _rad_glazing_folder or FLAHAGROW_RAD_GLAZING_DIR to a valid RadGlazing folder.")
 
 
 
