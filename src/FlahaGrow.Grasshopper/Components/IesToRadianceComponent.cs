@@ -39,11 +39,12 @@ public sealed class IesToRadianceComponent : GH_Component
         dataAccess.GetData(1, ref name); dataAccess.GetData(2, ref r); dataAccess.GetData(3, ref g); dataAccess.GetData(4, ref b); dataAccess.GetData(5, ref multiplier); dataAccess.GetData(7, ref dat); dataAccess.GetData(8, ref run); dataAccess.GetData(9, ref radianceBin);
         if (!File.Exists(ies)) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "IES path was not found."); return; }
         name = string.IsNullOrWhiteSpace(name) ? Path.GetFileNameWithoutExtension(ies) : name.Trim();
+        var outputStem = SanitizeStem(name, Path.GetFileNameWithoutExtension(ies));
         var (nr, ng, nb) = Normalize(r, g, b);
         project = Path.GetFullPath(project);
         var outputFolder = Path.Combine(project, "Luminaire_files");
         Directory.CreateDirectory(outputFolder);
-        var command = $"ies2rad -o {name} -t default{(multiplier != 0 ? $" -m {multiplier}" : string.Empty)} {ies}";
+        var command = $"ies2rad -o {outputStem} -t default{(multiplier != 0 ? $" -m {multiplier}" : string.Empty)} {ies}";
         if (!run) { dataAccess.SetData(2, $"Waiting for Run. {command}"); return; }
         try
         {
@@ -51,7 +52,7 @@ public sealed class IesToRadianceComponent : GH_Component
             var executable = FindIes2Rad(radianceBin);
             if (executable is null) throw new FileNotFoundException("ies2rad.exe was not found. Provide the Radiance bin folder.");
             var start = new ProcessStartInfo(executable) { WorkingDirectory = outputFolder, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
-            start.ArgumentList.Add("-o"); start.ArgumentList.Add(name); start.ArgumentList.Add("-t"); start.ArgumentList.Add("default");
+            start.ArgumentList.Add("-o"); start.ArgumentList.Add(outputStem); start.ArgumentList.Add("-t"); start.ArgumentList.Add("default");
             if (multiplier != 0) { start.ArgumentList.Add("-m"); start.ArgumentList.Add(multiplier.ToString(System.Globalization.CultureInfo.InvariantCulture)); }
             start.ArgumentList.Add(ies);
             using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start ies2rad.");
@@ -83,6 +84,11 @@ public sealed class IesToRadianceComponent : GH_Component
         candidates.Add(@"C:\Program Files\ladybug_tools\radiance\bin\ies2rad.exe");
         candidates.Add(@"C:\Radiance\bin\ies2rad.exe");
         return candidates.FirstOrDefault(File.Exists);
+    }
+    private static string SanitizeStem(string name, string fallback)
+    {
+        var stem = Regex.Replace(name, @"[^A-Za-z0-9._-]+", "_").Trim('_', '.');
+        return string.IsNullOrWhiteSpace(stem) ? fallback : stem;
     }
     private static void RewriteRad(string path, double r, double g, double b, string? datPath)
     {
