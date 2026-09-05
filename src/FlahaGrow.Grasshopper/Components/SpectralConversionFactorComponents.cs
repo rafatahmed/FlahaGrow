@@ -1,39 +1,44 @@
 using System.Globalization;
+using System.Windows.Forms;
 using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components;
 
-/// <summary>Selects the legacy standard illuminance-to-PPFD factors.</summary>
-public sealed class SelectSpectralFactorComponent : GH_Component
+public class SelectSpectralFactorComponent : GH_Component
 {
-    private static readonly Dictionary<string, double> Sources = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["CIE-D55"] = .017833, ["CIE-D65"] = .018043, ["CIE-D75"] = .018345,
-        ["CIE-HPS-1"] = .011640, ["CIE-HPS-5"] = .016180, ["CIE-LED-BH1"] = .013633, ["CIE-LED-V2"] = .017691
-    };
-    public SelectSpectralFactorComponent() : base("Select Spectral Factor", "Spectral Factor", "Selects a standard or custom illuminance-to-PPFD conversion factor.", "FlahaGrow", "Spectral") { }
-    public override Guid ComponentGuid => new("30fa20be-c063-4d37-9002-46d73774f697");
-    protected override void RegisterInputParams(GH_InputParamManager p) { p.AddTextParameter("Source", "Source", "CIE-D55, CIE-D65, CIE-D75, CIE-HPS-1, CIE-HPS-5, CIE-LED-BH1, CIE-LED-V2, or Custom.", GH_ParamAccess.item, "CIE-D65"); p.AddNumberParameter("Custom factor", "Custom", "Used only when Source is Custom; units are μmol/m²/s per lux.", GH_ParamAccess.item, .018043); }
-    protected override void RegisterOutputParams(GH_OutputParamManager p) { p.AddNumberParameter("Conversion factor", "Factor", "μmol/m²/s per lux.", GH_ParamAccess.item); p.AddTextParameter("Selected source", "Label", "Selected source label.", GH_ParamAccess.item); }
-    protected override void SolveInstance(IGH_DataAccess da) { string source = "CIE-D65"; var custom = .018043; da.GetData(0, ref source); da.GetData(1, ref custom); if (source.Equals("Custom", StringComparison.OrdinalIgnoreCase)) { if (custom < 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Custom factor must be non-negative."); return; } da.SetData(0, custom); da.SetData(1, "Custom"); return; } if (!Sources.TryGetValue(source.Trim(), out var factor)) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Unknown source. Use a listed CIE source or Custom."); return; } da.SetData(0, factor); da.SetData(1, source.Trim()); }
-}
-
-/// <summary>Calculates an illuminance-to-PPFD factor from a wavelength/spectral-power CSV.</summary>
-public class SpectralCsvFactorComponent : GH_Component
-{
-    public SpectralCsvFactorComponent(string name = "Load Spectral Data", string nick = "Spectral CSV", Guid? id = null) : base(name, nick, "Calculates an illuminance-to-PPFD factor from spectral power data between 380 and 780 nm.", "FlahaGrow", "Spectral") => Id = id ?? new Guid("061e0342-6d6f-4ecb-a207-a0807393de1f");
+    protected static readonly Dictionary<string, double> Sources = new(StringComparer.OrdinalIgnoreCase) { ["CIE-D55"] = .017833, ["CIE-D65"] = .018043, ["CIE-D75"] = .018345, ["CIE-HPS-1"] = .011640, ["CIE-HPS-5"] = .016180, ["CIE-LED-BH1"] = .013633, ["CIE-LED-V2"] = .017691 };
+    private double _factor = .018043; private string _label = "CIE-D65";
+    public SelectSpectralFactorComponent(string name = "Select Spectral Factor", string nick = "Spectral Factor", Guid? id = null) : base(name, nick, "Choose a standard spectrum or open a custom spectral CSV to set the illuminance-to-PPFD factor.", "FlahaGrow", "Spectral") => Id = id ?? new Guid("30fa20be-c063-4d37-9002-46d73774f697");
     private Guid Id { get; }
     public override Guid ComponentGuid => Id;
-    protected override void RegisterInputParams(GH_InputParamManager p) { p.AddTextParameter("Spectral CSV", "CSV", "CSV containing wavelength and spectral-power columns.", GH_ParamAccess.item); p.AddIntegerParameter("Wavelength interval", "nm", "Sampling interval in nm.", GH_ParamAccess.item, 1); }
-    protected override void RegisterOutputParams(GH_OutputParamManager p) { p.AddNumberParameter("Conversion factor", "Factor", "μmol/m²/s per lux.", GH_ParamAccess.item); p.AddNumberParameter("PAR sum", "PAR", "Integrated photon quantity before lux normalization.", GH_ParamAccess.item); p.AddNumberParameter("Lux sum", "Lux", "Integrated photopic quantity before 683 scaling.", GH_ParamAccess.item); }
-    protected override void SolveInstance(IGH_DataAccess da)
+    protected override void RegisterInputParams(GH_InputParamManager p) { p.AddBooleanParameter("Run", "Run", "Open the conversion-factor selection window.", GH_ParamAccess.item, false); p.AddIntegerParameter("Wavelength interval", "nm", "CSV calculation sampling interval in nm.", GH_ParamAccess.item, 1); }
+    protected override void RegisterOutputParams(GH_OutputParamManager p) { p.AddNumberParameter("Conversion factor", "Factor", "μmol/m²/s per lux.", GH_ParamAccess.item); p.AddTextParameter("Source", "Source", "Selected standard source or CSV filename.", GH_ParamAccess.item); }
+    protected override void SolveInstance(IGH_DataAccess da) { var run = false; var step = 1; da.GetData(0, ref run); da.GetData(1, ref step); if (run) ShowPicker(Math.Max(1, step)); da.SetData(0, _factor); da.SetData(1, _label); }
+    private void ShowPicker(int step)
     {
-        string csv = string.Empty; var step = 1; if (!da.GetData(0, ref csv)) return; da.GetData(1, ref step); if (!File.Exists(csv) || step <= 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Provide a valid CSV and positive wavelength interval."); return; }
-        try { var values = ReadCsv(csv); double par = 0, lux = 0; double last = 0; for (var nm = 380; nm <= 780; nm += step) { if (values.TryGetValue(nm, out var value)) last = value; var photons = nm * 1e-3 / (6.62607015e-34 * 2.99792458e8 * 6.02214076e23); par += photons * last; lux += Photopic(nm) * last; } var factor = lux == 0 ? 0 : par / (lux * 683); da.SetData(0, factor); da.SetData(1, par); da.SetData(2, lux); }
-        catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
+        using var form = new Form { Text = "Select Illuminance to PPFD Factor", Width = 440, Height = 420, StartPosition = FormStartPosition.CenterScreen };
+        var list = new ListBox { Dock = DockStyle.Top, Height = 210 }; foreach (var pair in Sources) list.Items.Add(pair.Key); list.SelectedItem = Sources.ContainsKey(_label) ? _label : "CIE-D65";
+        var custom = new TextBox { Dock = DockStyle.Top, Text = _factor.ToString("0.000000", CultureInfo.InvariantCulture) }; var browse = new Button { Dock = DockStyle.Top, Height = 34, Text = "Open spectral CSV…" }; var ok = new Button { Dock = DockStyle.Bottom, Height = 38, Text = "Set Factor and Close", DialogResult = DialogResult.OK };
+        browse.Click += (_, _) => { using var dialog = new OpenFileDialog { Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*" }; if (dialog.ShowDialog() == DialogResult.OK) { var result = SpectralMath.Compute(dialog.FileName, step); custom.Text = result.Factor.ToString("0.000000", CultureInfo.InvariantCulture); _label = Path.GetFileName(dialog.FileName); list.ClearSelected(); } };
+        form.Controls.Add(custom); form.Controls.Add(browse); form.Controls.Add(list); form.Controls.Add(ok); form.AcceptButton = ok;
+        if (form.ShowDialog() == DialogResult.OK) { if (list.SelectedItem is string source && Sources.TryGetValue(source, out var selected)) { _factor = selected; _label = source; } else if (double.TryParse(custom.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value >= 0) _factor = value; }
     }
-    private static Dictionary<int, double> ReadCsv(string path) { var rows = File.ReadAllLines(path).Where(line => !string.IsNullOrWhiteSpace(line)).ToList(); if (rows.Count < 2) throw new InvalidDataException("CSV requires a header and data rows."); var result = new Dictionary<int, double>(); foreach (var line in rows.Skip(1)) { var fields = line.Split(','); if (fields.Length < 2) continue; if (double.TryParse(fields[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var wavelength) && double.TryParse(fields[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var power)) result[(int)Math.Round(wavelength)] = power; } return result; }
-    private static double Photopic(double nm) => 1.056 * Math.Exp(-.5 * Math.Pow((nm - 599.8) / 37.9, 2)) + .362 * Math.Exp(-.5 * Math.Pow((nm - 442.0) / 16.0, 2)) - .065 * Math.Exp(-.5 * Math.Pow((nm - 501.1) / 20.4, 2));
+}
+public sealed class SelectSpectralFactorLegacyComponent : SelectSpectralFactorComponent { public SelectSpectralFactorLegacyComponent() : base("Select Spectral Factor (Legacy)", "Spectral Factor 2", new Guid("36362f09-1294-4d39-8d9e-0185ec44c538")) { } }
+
+public sealed class LoadSpectralDataComponent : GH_Component
+{
+    private double _factor; private double _par; private double _lux; private string _file = "No file loaded";
+    public LoadSpectralDataComponent() : base("Load Spectral Data", "Load Spectral", "Opens a CSV file and calculates its illuminance-to-PPFD conversion factor.", "FlahaGrow", "Spectral") { }
+    public override Guid ComponentGuid => new("061e0342-6d6f-4ecb-a207-a0807393de1f");
+    protected override void RegisterInputParams(GH_InputParamManager p) { p.AddBooleanParameter("Load spectral data", "Load", "Open the spectral CSV picker.", GH_ParamAccess.item, false); p.AddIntegerParameter("Wavelength interval", "nm", "Sampling interval in nm.", GH_ParamAccess.item, 1); }
+    protected override void RegisterOutputParams(GH_OutputParamManager p) { p.AddNumberParameter("Conversion factor", "Factor", "μmol/m²/s per lux.", GH_ParamAccess.item); p.AddNumberParameter("PAR sum", "PAR", "Integrated photon quantity.", GH_ParamAccess.item); p.AddNumberParameter("Lux sum", "Lux", "Integrated photopic quantity.", GH_ParamAccess.item); p.AddTextParameter("File", "File", "Selected CSV filename.", GH_ParamAccess.item); }
+    protected override void SolveInstance(IGH_DataAccess da) { var load = false; var step = 1; da.GetData(0, ref load); da.GetData(1, ref step); if (load) { using var dialog = new OpenFileDialog { Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*" }; if (dialog.ShowDialog() == DialogResult.OK) { var result = SpectralMath.Compute(dialog.FileName, Math.Max(1, step)); _factor = result.Factor; _par = result.Par; _lux = result.Lux; _file = Path.GetFileName(dialog.FileName); } } da.SetData(0, _factor); da.SetData(1, _par); da.SetData(2, _lux); da.SetData(3, _file); }
 }
 
-public sealed class SelectSpectralFactorLegacyComponent : SpectralCsvFactorComponent { public SelectSpectralFactorLegacyComponent() : base("Select Spectral Factor (Legacy)", "Spectral Factor 2", new Guid("36362f09-1294-4d39-8d9e-0185ec44c538")) { } }
+internal static class SpectralMath
+{
+    internal static (double Factor, double Par, double Lux) Compute(string path, int step) { var rows = File.ReadAllLines(path).Skip(1).Select(line => line.Split(',')).Where(row => row.Length >= 2).Select(Parse).Where(row => row.Ok).ToDictionary(row => (int)Math.Round(row.Wavelength), row => row.Power); double par = 0, lux = 0, last = 0; for (var nm = 380; nm <= 780; nm += step) { if (rows.TryGetValue(nm, out var value)) last = value; par += nm * 1e-3 / (6.62607015e-34 * 2.99792458e8 * 6.02214076e23) * last; lux += Photopic(nm) * last; } return (lux == 0 ? 0 : par / (lux * 683), par, lux); }
+    private static (bool Ok, double Wavelength, double Power) Parse(string[] row) { var wavelengthOk = double.TryParse(row[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var wavelength); var powerOk = double.TryParse(row[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var power); return (wavelengthOk && powerOk, wavelength, power); }
+    private static double Photopic(double nm) => 1.056 * Math.Exp(-.5 * Math.Pow((nm - 599.8) / 37.9, 2)) + .362 * Math.Exp(-.5 * Math.Pow((nm - 442) / 16, 2)) - .065 * Math.Exp(-.5 * Math.Pow((nm - 501.1) / 20.4, 2));
+}
