@@ -92,29 +92,24 @@ public sealed class AnnualSimulationComponent : GH_Component
         "2" or "low" => new DirectSunSettings(3, 1297, 0, "5e-3"),
         _ => new DirectSunSettings(2, 577, 0, "1e-2")
     };
-    private static IEnumerable<string> Commands(string epw, string pts, int sensors, int sky, string detail, DirectSunSettings directSun, int threads, int part, string? radianceBin, string? radianceLib) => new[]
+    private static IEnumerable<string> Commands(string epw, string pts, int sensors, int sky, string detail, DirectSunSettings directSun, int threads, int part, string? radianceBin, string? radianceLib)
     {
-        "@echo off",
-        string.IsNullOrWhiteSpace(radianceBin) ? "" : $"set \"PATH={radianceBin};%PATH%\"",
-        string.IsNullOrWhiteSpace(radianceLib) ? "" : $"set \"RAYPATH=.;{radianceLib};%RAYPATH%\"",
-        $"echo Annual RUN (part {part})",
-        $"epw2wea \"{epw}\" Weather_{part}.wea",
-        $"gendaymtx -m {sky} Weather_{part}.wea > Weather_{part}.smx",
-        $"oconv envelope.mat envelope.rad > amodel_{part}.oct",
-        $"rfluxmtx -I+ -y {sensors} {detail} - skyglow.rad -i amodel_{part}.oct < {pts} > illum_part{part}.mtx",
-        $"dctimestep illum_part{part}.mtx Weather_{part}.smx | rmtxop -fa -t -c 47.4 119.9 11.6 - > annualR_part{part}.ill",
-        $"oconv envelope.blk envelope.rad > bmodel_{part}.oct",
-        $"rfluxmtx -I+ -y {sensors} {detail} - skyglow.rad -i bmodel_{part}.oct < {pts} > billum_part{part}.mtx",
-        $"gendaymtx -m {sky} -d Weather_{part}.wea > Weatherd_{part}.smx",
-        $"dctimestep billum_part{part}.mtx Weatherd_{part}.smx | rmtxop -fa -t -c 47.4 119.9 11.6 - > annualRd_part{part}.ill",
-        $"echo void light solar 0 0 3 1e6 1e6 1e6 > suns_{part}.rad",
-        $"cnt {directSun.Count} | rcalc -e MF:{directSun.Mf} -f reinsrc.cal -e Rbin=recno -o \"solar source sun 0 0 4 ${{Dx}} ${{Dy}} ${{Dz}} 0.533\" >> suns_{part}.rad",
-        $"oconv -f envelope.blk envelope.rad suns_{part}.rad > sunCoefficientsDDS_{part}.oct",
-        $"rcontrib -I+ -ab {directSun.Ab} -y {sensors} -n {threads} -ad 64 -lw {directSun.Lw} -dc 1 -dt 0 -dj 0 -fa -e MF:{directSun.Mf} -f reinhart.cal -b rbin -bn Nrbins -m solar sunCoefficientsDDS_{part}.oct < {pts} > cdsDDS_part{part}.mtx",
-        $"gendaymtx -5 0.533 -d -m {directSun.Mf} Weather_{part}.wea > WeathersunM{directSun.Mf}_{part}.smx",
-        $"dctimestep cdsDDS_part{part}.mtx WeathersunM{directSun.Mf}_{part}.smx | rmtxop -fa -t -c 47.4 119.9 11.6 - > annualRs_part{part}.ill",
-        $"rmtxop annualR_part{part}.ill + -s -1 annualRd_part{part}.ill + annualRs_part{part}.ill > annualRfinal_part{part}.ill",
-        $"echo Done part {part}"
-    };
+        var lines = new List<string> { "@echo off", string.IsNullOrWhiteSpace(radianceBin) ? "" : $"set \"PATH={radianceBin};%PATH%\"", string.IsNullOrWhiteSpace(radianceLib) ? "" : $"set \"RAYPATH=.;{radianceLib};%RAYPATH%\"", $"echo Annual simulation part {part} > annual_progress_part{part}.log" };
+        AddStage(lines, part, "1/8 Weather conversion and sky matrix"); lines.Add($"epw2wea \"{epw}\" Weather_{part}.wea"); lines.Add($"gendaymtx -m {sky} Weather_{part}.wea > Weather_{part}.smx");
+        AddStage(lines, part, "2/8 Total daylight coefficients"); lines.Add($"oconv envelope.mat envelope.rad > amodel_{part}.oct"); lines.Add($"rfluxmtx -I+ -y {sensors} {detail} - skyglow.rad -i amodel_{part}.oct < {pts} > illum_part{part}.mtx");
+        AddStage(lines, part, "3/8 Total daylight annual matrix"); lines.Add($"dctimestep illum_part{part}.mtx Weather_{part}.smx | rmtxop -fa -t -c 47.4 119.9 11.6 - > annualR_part{part}.ill");
+        AddStage(lines, part, "4/8 Direct daylight coefficients"); lines.Add($"oconv envelope.blk envelope.rad > bmodel_{part}.oct"); lines.Add($"rfluxmtx -I+ -y {sensors} {detail} - skyglow.rad -i bmodel_{part}.oct < {pts} > billum_part{part}.mtx");
+        AddStage(lines, part, "5/8 Direct daylight annual matrix"); lines.Add($"gendaymtx -m {sky} -d Weather_{part}.wea > Weatherd_{part}.smx"); lines.Add($"dctimestep billum_part{part}.mtx Weatherd_{part}.smx | rmtxop -fa -t -c 47.4 119.9 11.6 - > annualRd_part{part}.ill");
+        AddStage(lines, part, "6/8 Direct-sun coefficients"); lines.Add($"echo void light solar 0 0 3 1e6 1e6 1e6 > suns_{part}.rad"); lines.Add($"cnt {directSun.Count} | rcalc -e MF:{directSun.Mf} -f reinsrc.cal -e Rbin=recno -o \"solar source sun 0 0 4 ${{Dx}} ${{Dy}} ${{Dz}} 0.533\" >> suns_{part}.rad"); lines.Add($"oconv -f envelope.blk envelope.rad suns_{part}.rad > sunCoefficientsDDS_{part}.oct"); lines.Add($"rcontrib -I+ -ab {directSun.Ab} -y {sensors} -n {threads} -ad 64 -lw {directSun.Lw} -dc 1 -dt 0 -dj 0 -fa -e MF:{directSun.Mf} -f reinhart.cal -b rbin -bn Nrbins -m solar sunCoefficientsDDS_{part}.oct < {pts} > cdsDDS_part{part}.mtx");
+        AddStage(lines, part, "7/8 Direct-sun annual matrix"); lines.Add($"gendaymtx -5 0.533 -d -m {directSun.Mf} Weather_{part}.wea > WeathersunM{directSun.Mf}_{part}.smx"); lines.Add($"dctimestep cdsDDS_part{part}.mtx WeathersunM{directSun.Mf}_{part}.smx | rmtxop -fa -t -c 47.4 119.9 11.6 - > annualRs_part{part}.ill");
+        AddStage(lines, part, "8/8 Combining final annual illuminance"); lines.Add($"rmtxop annualR_part{part}.ill + -s -1 annualRd_part{part}.ill + annualRs_part{part}.ill > annualRfinal_part{part}.ill"); AddStage(lines, part, "Completed");
+        return lines;
+    }
+    private static void AddStage(List<string> lines, int part, string message)
+    {
+        var text = $"[Part {part}] {message}";
+        lines.Add($"echo {text}");
+        lines.Add($"echo {text}>> annual_progress_part{part}.log");
+    }
     private sealed record DirectSunSettings(int Mf, int Count, int Ab, string Lw);
 }
