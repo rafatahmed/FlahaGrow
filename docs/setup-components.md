@@ -7,6 +7,7 @@
 1. Place **Simulation Paths**. Choose a project location or leave Auto enabled. Connect `Paths` to **Working Directory**.
 2. Enter project and analysis names and select `Workflow`: `0 Annual daylight` or `1 Electric-light preparation`. Press a Button connected to `Initialize` to create the workspace. Existing workspaces open automatically.
 3. Connect Working Directory's `Analysis` output to **Radiance Status**. It automatically detects Radiance and inherits the analysis workflow.
+4. Connect Radiance Status's `Radiance` output to the optional **Radiance Environment** input on Annual Simulation or IES to Radiance. The runner then uses that exact checked installation. Existing definitions may continue using the optional Bin input.
 
 Radiance Status also works independently with no Analysis connection. It defaults to annual daylight; its right-click menu offers an electric-light check. A connected analysis determines the workflow.
 
@@ -16,7 +17,7 @@ Radiance Status also works independently with no Analysis connection. It default
 | Working Directory | Paths, Project name, Analysis name, Workflow, Initialize, Adopt existing, Refresh | Project, Analysis, Folder, Inputs, Runs, Library, Status |
 | Radiance Status | Analysis (optional), Refresh | Radiance, Ready, Version, Bin, Lib, Found, Status |
 
-Location modes are `0 Auto`, `1 Project-relative`, `2 System`, and `3 Custom`. Library is the FlahaGrow material/photometry library, separate from Radiance's calculation library. Packaged assets are discovered automatically; development builds can use `src/Library`.
+Location modes are `0 Auto`, `1 Project-relative`, `2 System`, and `3 Custom`. Library is the FlahaGrow material/photometry library, separate from Radiance's calculation library. Packaged assets are discovered automatically; development builds can use `src/Library`. Connect its Library output directly to a material, glazing, or IES selector; each selector resolves its required subfolder. Existing definitions that supply `RadMaterials`, `RadGlazing`, or `RadIES` directly remain supported.
 
 ## Automatic Radiance detection
 
@@ -55,3 +56,5 @@ dotnet test tests/FlahaGrow.Core.Tests --configuration Release --no-restore -m:1
 Core tests cover discovery priority, fallback, override isolation, probe limits, caching, and workspace behavior. Standalone component checks cover nine component identities/interfaces and archive round trips, three visible names, automatic checking, and direct solves. They do not exercise Rhino's canvas scheduler. Live checks still include opening a saved legacy definition, saving/reopening the new trio, using menus, changing inputs during a check, and closing a document during work.
 
 The current annual runner still expects a Honeybee ModelToRad root containing `model/scene` and `model/grid`. Setup's Inputs and Runs are not drop-in replacements. Downstream simulation integration remains a separate stage.
+
+See the [post-Setup component consistency review](setup-consistency-review-2026-09-07.md) for the connection matrix, remaining library/luminaire/Radiance integration gaps, and validation results at revision `dd57f58`.

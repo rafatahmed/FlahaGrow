@@ -1,4 +1,5 @@
 using Grasshopper.Kernel;
+using FlahaGrow.Core.Projects;
 
 namespace FlahaGrow.Grasshopper.Components;
 
@@ -30,8 +31,8 @@ public sealed class CompileLuminariesComponent : GH_Component
         try
         {
             if (lines.Count == 0) throw new ArgumentException("No xform lines were supplied.");
-            project = Path.GetFullPath(project);
-            var folder = Path.Combine(Directory.GetParent(project)?.FullName ?? project, "Luminaire_files");
+            project = ProjectLayout.Absolute(project);
+            var folder = LuminairePathResolver.ResolveFolder(project);
             if (!Directory.Exists(folder)) throw new DirectoryNotFoundException($"Luminaire_files folder was not found: {folder}");
             var output = Path.Combine(folder, "luminaries.rad");
             File.WriteAllLines(output, new[] { "# Auto-generated luminaire placement file", "# Created by FlahaGrow", string.Empty }.Concat(lines));

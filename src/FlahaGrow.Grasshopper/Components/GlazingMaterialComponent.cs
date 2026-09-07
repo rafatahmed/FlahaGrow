@@ -1,5 +1,7 @@
 using System.Reflection;
+using System.Globalization;
 using System.Windows.Forms;
+using FlahaGrow.Core.Projects;
 using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components;
@@ -17,7 +19,7 @@ public sealed class GlazingMaterialComponent : GH_Component
     protected override void RegisterInputParams(GH_InputParamManager parameters)
     {
         parameters.AddBooleanParameter("Run", "Run", "Open the glazing selector.", GH_ParamAccess.item, false);
-        parameters.AddTextParameter("RadGlazing folder", "Glazing", "Optional RadGlazing folder. Leave empty to use the bundled library.", GH_ParamAccess.item);
+        parameters.AddTextParameter("RadGlazing folder", "Glazing", "Optional RadGlazing folder, FlahaGrow library root, or its containing folder. Leave empty to use the bundled library.", GH_ParamAccess.item);
         parameters[1].Optional = true;
     }
 
@@ -32,14 +34,13 @@ public sealed class GlazingMaterialComponent : GH_Component
         dataAccess.GetData(1, ref folder);
         if (!run) return;
 
-        folder = string.IsNullOrWhiteSpace(folder)
-            ? Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "shared", "Library", "FlahaGrow_Library_Small", "RadGlazing")
-            : Path.GetFullPath(folder);
-        if (!Directory.Exists(folder))
+        try
         {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "RadGlazing folder was not found.");
-            return;
+            folder = string.IsNullOrWhiteSpace(folder)
+                ? Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "shared", "Library", "FlahaGrow_Library_Small", LibraryPathResolver.Glazing)
+                : new LibraryPathResolver().ResolveSection(folder, LibraryPathResolver.Glazing);
         }
+        catch (Exception exception) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, exception.Message); return; }
 
         var rows = Directory.EnumerateFiles(folder, "*.rad").Select(Parse).OrderBy(row => row.Name, StringComparer.OrdinalIgnoreCase).ToList();
         using var form = new Form { Text = "FlahaGrow Radiance Glazing", Width = 950, Height = 600, StartPosition = FormStartPosition.CenterScreen };
@@ -69,7 +70,7 @@ public sealed class GlazingMaterialComponent : GH_Component
         {
             var tokens = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
             if (tokens.Length >= 3 && tokens[0] == "void") { type = tokens[1].ToLowerInvariant(); name = tokens[2]; }
-            foreach (var token in tokens) if (double.TryParse(token, out var value)) values.Add(value);
+            foreach (var token in tokens) if (double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)) values.Add(value);
         }
         var r = values.Count > 0 ? values[0] : 0;
         var g = values.Count > 1 ? values[1] : 0;

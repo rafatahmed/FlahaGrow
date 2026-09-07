@@ -1,21 +1,38 @@
-# Repository structure and code audit
+# Repository audit and implementation tracker
 
-Audit date: 2026-09-07. Source revision: `254d720`.
+Audit date: 2026-09-07. Original audit revision: `254d720`. Implementation baseline: `dd57f58`.
 
 ## Scope and assumptions
 
-This is a repository map and implementation audit, not a certification of simulation accuracy. The compiled plugin is treated as the primary implementation; the Python components are migration references. Source fixes, installation, publishing, and external-service changes were outside this audit. The pre-existing untracked `None/` directory was excluded and left untouched.
+This began as a repository map and implementation audit at `254d720`; it is now the implementation tracker after the Setup foundation in `dd57f58`. The compiled plugin is treated as the primary implementation; the Python components are migration references. It is not a certification of simulation accuracy. The pre-existing untracked `None/` directory remains excluded and untouched.
 
-The Release build succeeds, but the annual pipeline has correctness and result-integrity defects that should be resolved before relying on it for study results.
+Setup is implemented and verified in isolation, but the annual pipeline still has correctness and result-integrity defects that must be resolved before relying on it for study results. The [Setup consistency review](setup-consistency-review-2026-09-07.md) defines the producer/consumer gaps that the next implementation stages must close.
+
+## Implementation status at `dd57f58`
+
+| Area | Status | Evidence and boundary |
+| --- | --- | --- |
+| Project paths, manifests, workspace initialization, and typed Setup contexts | Implemented | `FlahaGrow.Core` supplies path, workspace, manifest, and Radiance services; the visible Setup trio is tested. It does not yet make downstream runners consume those contexts. |
+| Radiance discovery and workflow readiness | Implemented; host validation pending | `Radiance Status` selects and checks an installation for annual daylight or electric preparation. Annual and IES runners consume its typed environment when connected; legacy definitions still use independent discovery. See C01 in the consistency review. |
+| Package build failure handling | Resolved | `tools/New-YakPackage.ps1` checks `$LASTEXITCODE` immediately after `dotnet build`; audit F10 is closed at source level. Failure injection has not been repeated. |
+| Annual execution and result-integrity remediation | Not started | F01–F04, F08, F11, and F12 remain open. No run manifest or validated cache format exists yet. |
+| Electric-light component-consistency remediation | In progress | C01, C03, C04, and F07 are implemented: runners can use the checked environment, conversion and compilation share a project-local folder, selectors accept the Setup library root and legacy direct folders, and machine-readable numbers use invariant culture. C05 remains open. |
+| Selector persistence and material-parsing remediation | Not started | F06 and F09 remain open. |
+| Migration documentation and full Rhino workflow validation | Not started | C06 in the consistency review remains open. Automated Setup checks do not exercise real canvas wiring, menus, or UI scheduling. |
+
+The original findings below are retained as the evidence baseline. `F10` is the only finding closed by `dd57f58`; all other finding statuses are unchanged unless explicitly superseded by a later verified implementation.
 
 ## Repository map
 
 | Location | Responsibility |
 | --- | --- |
-| `FlahaGrow.sln` | Single-project .NET solution |
+| `FlahaGrow.sln` | Multi-project .NET solution: Core, Grasshopper plugin, Core tests, and Setup smoke checks |
 | `Directory.Build.props` | Nullable reference types, implicit usings, latest language version, warnings as errors |
 | `src/FlahaGrow.Grasshopper/` | Rhino 8 Windows plugin targeting `net7.0-windows`; builds `FlahaGrow.gha` |
-| `src/FlahaGrow.Grasshopper/Components/` | 25 C# source files containing Grasshopper components, UI dialogs, simulation execution, parsers, cache access, and metrics |
+| `src/FlahaGrow.Core/` | Project/workspace, manifest, asynchronous operation, and Radiance discovery/readiness services |
+| `src/FlahaGrow.Grasshopper/Components/` | Grasshopper components, UI dialogs, simulation execution, parsers, cache access, metrics, and visible/legacy Setup adapters |
+| `tests/FlahaGrow.Core.Tests/` | Automated Core tests for paths, manifests, workspaces, process execution, and Radiance discovery |
+| `tests/FlahaGrow.SetupSmoke/` | Standalone component identities, archive round trips, and direct Setup solves |
 | `src/Code/` | 25 legacy Python files arranged into setup, preparation, RGB simulation, and result/metric stages |
 | `src/Library/` | Reusable Radiance materials, glazing, IES photometry, textures, and tabular material data |
 | `tools/New-YakPackage.ps1` | Release build and local Yak package staging |
@@ -23,7 +40,7 @@ The Release build succeeds, but the annual pipeline has correctness and result-i
 | `docs/` | Scope, annual workflow, plugin development, and migration contracts |
 | `artifacts/` | Ignored generated packages and audit harness |
 
-The project references Grasshopper NuGet version `8.33.26188.13001`; Rhino supplies the host assemblies. There is no separate computational library, test project, or tracked CI workflow. No tracked `.gh`, `.ghx`, or `.3dm` reference study was found.
+The project references Grasshopper NuGet version `8.33.26188.13001`; Rhino supplies the host assemblies. Core and Setup test projects are now tracked. There is still no tracked CI workflow or `.gh`, `.ghx`, or `.3dm` reference study.
 
 ## How the code fits together
 
@@ -169,7 +186,20 @@ The generated harness is in ignored `artifacts/audit-harness/`. It runs extracte
 
 ## Recommended implementation order
 
-1. Fix annual sky basis, run isolation, failure handling, and cache validation; add single/four-part and rerun fixtures.
-2. Fix luminaire paths, glazing parsing, invariant numeric I/O, and custom-option validation.
-3. Persist study selections, correct large-file arithmetic and same-path copying, and make packaging fail on build errors.
-4. Add a small committed reference study and numerical tests for spectral conversion, PPFD, DLI, and energy; then reconcile the workflow and migration documentation.
+1. **Establish shared downstream contracts.** Add read-only shared resolvers for library subfolders and luminaire paths. Let annual and IES execution consume the checked `RadianceGoo` environment without changing legacy component GUIDs or port order. Resolve C01, C03, and C04 first, with direct producer-to-consumer tests.
+2. **Make annual runs owned and valid.** Define a Honeybee import boundary, allocate a manifest-declared analysis run directory, and make the runner, progress component, and cache consume it. Correct the sky basis (F01), command failure handling (F04), and validated matrix parsing (F03) as one contract. Add single-part, four-part, rerun, failure, and truncated-matrix fixtures.
+3. **Close remaining execution defects.** Validate custom options before process launch (F08), use invariant numeric I/O (F07), correct the same-EPW path case (F12), and use checked long cache offsets (F11). Keep process work bounded and define deliberate trigger behavior under C05.
+4. **Complete selector and study persistence.** Correct glazing counted-block parsing (F06), persist spectral and selector selections (F09), then reconcile migration documentation (C06). Test save/reopen behavior in Rhino.
+5. **Prove workflow behavior.** Add a small committed reference study and numerical tests for spectral conversion, PPFD, DLI, and energy. Validate a saved legacy definition and a new visible-Setup definition in Rhino before declaring the workflow integrated.
+
+## Implementation record
+
+| Date | Revision | Change | Validation |
+| --- | --- | --- | --- |
+| 2026-09-07 | `dd57f58` | Implemented the project Setup foundation: typed paths, project/analysis manifests, workspace initialization, bounded Radiance readiness checks, preserved legacy Setup identities, visible Setup trio, and package build exit-code handling. | 106 Core tests passed. Nine Setup component interface/archive checks and direct Setup solves passed. These checks do not validate downstream runner integration or a live Rhino canvas. |
+| 2026-09-07 | Working tree | Resolved C04 with a shared library-path resolver. Material, glazing, and IES selectors now accept a Setup asset root, its containing folder, or their legacy direct selector folder. | 112 Core tests passed and the nine Setup component checks passed. Live selector dialogs have not been exercised in Rhino. |
+| 2026-09-07 | Working tree | Resolved C03 with a shared project-local luminaire-folder resolver used by IES conversion and luminaire compilation. | 114 Core tests passed and the nine Setup component checks passed. Live `ies2rad` conversion through luminaire compilation has not been exercised in Rhino. |
+| 2026-09-07 | Working tree | Implemented C01 with optional typed verified-Radiance inputs on Annual Simulation and IES to Radiance. Connected inputs require readiness and workflow compatibility, then determine the exact executable and library environment. | 119 Core tests passed. Component smoke checks verify both appended optional typed inputs. Live Rhino execution remains. |
+| 2026-09-07 | Working tree | Resolved F07 at source level: generated Radiance RGB and `xform` values, plus numeric imports from material, glazing, and IES data, use invariant culture. | Plugin and Setup smoke build passed. A non-English Windows-culture Rhino execution remains required. |
+
+Future implementation entries must identify the findings closed, link their tests, and state whether validation was source-level, automated, Rhino-host, or end-to-end simulation validation.

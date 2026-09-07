@@ -45,6 +45,13 @@ var visible = cases.Where(c => c.Component.Exposure != GH_Exposure.hidden).Selec
 if (!visible.SequenceEqual(new[] { "Radiance Status", "Simulation Paths", "Working Directory" })) throw new Exception("Setup toolbar has duplicate or missing components.");
 Console.WriteLine("Nine component checks passed; exactly three visible Setup components. This does not exercise the Rhino canvas or UI scheduler.");
 
+foreach (var (component, inputs) in new[] { ((GH_Component)new AnnualSimulationComponent(), 8), ((GH_Component)new IesToRadianceComponent(), 11) })
+{
+    if (component.Params.Input.Count != inputs || component.Params.Input[^1] is not RadianceParameter || !component.Params.Input[^1].Optional)
+        throw new InvalidOperationException("Verified Radiance environment input mismatch: " + component.Name);
+}
+Console.WriteLine("PASS annual and IES consumers: appended optional verified Radiance environment inputs.");
+
 var testRoot = Path.Combine(Path.GetTempPath(), "FlahaGrow.SetupSmoke", Guid.NewGuid().ToString("N"));
 try
 {

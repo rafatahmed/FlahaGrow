@@ -1,5 +1,6 @@
 using Grasshopper.Kernel;
 using Rhino.Geometry;
+using System.Globalization;
 
 namespace FlahaGrow.Grasshopper.Components;
 
@@ -50,10 +51,10 @@ public sealed class LightingGeometryComponent : GH_Component
     private static string Build(Point3d point, double x, double y, double z, string file)
     {
         var parts = new List<string> { "!xform" };
-        if (Math.Abs(x) > 1e-12) parts.Add($"-rx {x:0.######}");
-        if (Math.Abs(y) > 1e-12) parts.Add($"-ry {y:0.######}");
-        if (Math.Abs(z) > 1e-12) parts.Add($"-rz {z:0.######}");
-        parts.Add($"-t {point.X:0.######} {point.Y:0.######} {point.Z:0.######}");
+        if (Math.Abs(x) > 1e-12) parts.Add("-rx " + x.ToString("0.######", CultureInfo.InvariantCulture));
+        if (Math.Abs(y) > 1e-12) parts.Add("-ry " + y.ToString("0.######", CultureInfo.InvariantCulture));
+        if (Math.Abs(z) > 1e-12) parts.Add("-rz " + z.ToString("0.######", CultureInfo.InvariantCulture));
+        parts.Add(string.Format(CultureInfo.InvariantCulture, "-t {0:0.######} {1:0.######} {2:0.######}", point.X, point.Y, point.Z));
         parts.Add($"\"{Path.GetFullPath(file).Replace('\\', '/')}\"");
         return string.Join(" ", parts);
     }

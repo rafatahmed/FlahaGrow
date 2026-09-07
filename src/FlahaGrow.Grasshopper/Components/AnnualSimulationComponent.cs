@@ -1,5 +1,8 @@
 using System.Diagnostics;
 using System.Globalization;
+using FlahaGrow.Core.Projects;
+using FlahaGrow.Core.Radiance;
+using FlahaGrow.Grasshopper.Parameters;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
 
@@ -21,15 +24,17 @@ public sealed class AnnualSimulationComponent : GH_Component
         p[5].Optional = true;
         p.AddTextParameter("Radiance bin folder", "Bin", "Optional folder containing Radiance executables. Leave blank for automatic detection.", GH_ParamAccess.item);
         p[6].Optional = true;
+        p.AddParameter(new RadianceParameter(), "Radiance Environment", "Radiance", "Optional checked Radiance Status environment. When connected, it must be ready for annual daylight and determines the exact bin and library.", GH_ParamAccess.item);
+        p[7].Optional = true;
     }
     protected override void RegisterOutputParams(GH_OutputParamManager p) { p.AddTextParameter("Result folder", "Folder", "Folder containing annualRfinal_part*.ill results.", GH_ParamAccess.item); p.AddTextParameter("Batch files", "BAT", "Generated batch-file paths.", GH_ParamAccess.list); p.AddTextParameter("Status", "Status", "Preparation or launch status.", GH_ParamAccess.item); }
     protected override void SolveInstance(IGH_DataAccess da)
     {
-        string root = string.Empty, epw = string.Empty, detail = "mid", radianceBin = string.Empty; var sky = 1; var run = false;
+        string root = string.Empty, epw = string.Empty, detail = "mid", radianceBin = string.Empty; var sky = 1; var run = false; var radiance = new RadianceGoo();
         var sensorPoints = new List<Point3d>();
         if (!da.GetData(0, ref root)) { SetMissingInputStatus("Project folder is required."); return; }
         if (!da.GetData(1, ref epw)) { SetMissingInputStatus("EPW weather file is required."); return; }
-        da.GetData(2, ref sky); da.GetData(3, ref detail); da.GetData(4, ref run); da.GetDataList(5, sensorPoints); da.GetData(6, ref radianceBin);
+        da.GetData(2, ref sky); da.GetData(3, ref detail); da.GetData(4, ref run); da.GetDataList(5, sensorPoints); da.GetData(6, ref radianceBin); da.GetData(7, ref radiance);
         try
         {
             root = Path.GetFullPath(root); if (!File.Exists(epw)) throw new FileNotFoundException("EPW weather file was not found.");
@@ -50,9 +55,11 @@ public sealed class AnnualSimulationComponent : GH_Component
             var cpu = Math.Max(1, Environment.ProcessorCount); var parameters = Detail(detail, cpu); var directSun = DirectSun(detail);
             var perPartCpu = split ? Math.Max(1, cpu / 4) : cpu;
             parameters = SetThreadCount(parameters, perPartCpu);
-            var resolvedBin = FindRadianceBin(radianceBin);
+            var verifiedEnvironment = radiance.IsValid ? RadianceExecutionEnvironment.Require(radiance.Value, AnalysisWorkflow.AnnualDaylight, radianceBin) : null;
+            if (!radiance.IsValid && Params.Input[7].SourceCount > 0) throw new InvalidOperationException("Connected Radiance environment is unresolved.");
+            var resolvedBin = verifiedEnvironment?.BinFolder ?? FindRadianceBin(radianceBin);
             if (run && resolvedBin is null) throw new DirectoryNotFoundException("Radiance executables were not found. Provide the Radiance bin folder.");
-            var radianceLib = resolvedBin is null ? null : Path.Combine(Directory.GetParent(resolvedBin)!.FullName, "lib");
+            var radianceLib = verifiedEnvironment?.LibraryFolder ?? (resolvedBin is null ? null : Path.Combine(Directory.GetParent(resolvedBin)!.FullName, "lib"));
             if (run && (radianceLib is null || !File.Exists(Path.Combine(radianceLib, "reinsrc.cal")) || !File.Exists(Path.Combine(radianceLib, "reinhart.cal")))) throw new DirectoryNotFoundException("Radiance calculation library was not found beside the Radiance bin folder.");
             for (var part = 0; part < partCount; part++)
             {

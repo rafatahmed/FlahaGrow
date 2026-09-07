@@ -1,5 +1,7 @@
 using System.Reflection;
+using System.Globalization;
 using System.Windows.Forms;
+using FlahaGrow.Core.Projects;
 using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components;
@@ -15,7 +17,7 @@ public abstract class OpaqueMaterialSelectorComponent : GH_Component
     protected override void RegisterInputParams(GH_InputParamManager parameters)
     {
         parameters.AddBooleanParameter("Run", "Run", "Open the material selector.", GH_ParamAccess.item, false);
-        parameters.AddTextParameter("RadMaterials folder", "Materials", "Optional RadMaterials folder. Leave empty to use the bundled library.", GH_ParamAccess.item);
+        parameters.AddTextParameter("RadMaterials folder", "Materials", "Optional RadMaterials folder, FlahaGrow library root, or its containing folder. Leave empty to use the bundled library.", GH_ParamAccess.item);
         parameters[1].Optional = true;
     }
 
@@ -33,14 +35,13 @@ public abstract class OpaqueMaterialSelectorComponent : GH_Component
             return;
         }
 
-        folder = string.IsNullOrWhiteSpace(folder)
-            ? Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "shared", "Library", "FlahaGrow_Library_Small", "RadMaterials")
-            : Path.GetFullPath(folder);
-        if (!Directory.Exists(folder))
+        try
         {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "RadMaterials folder was not found.");
-            return;
+            folder = string.IsNullOrWhiteSpace(folder)
+                ? Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "shared", "Library", "FlahaGrow_Library_Small", LibraryPathResolver.Materials)
+                : new LibraryPathResolver().ResolveSection(folder, LibraryPathResolver.Materials);
         }
+        catch (Exception exception) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, exception.Message); return; }
 
         var selected = MaterialSelectionDialog.Select(folder);
         if (!string.IsNullOrWhiteSpace(selected))
@@ -103,7 +104,7 @@ internal static class MaterialSelectionDialog
             if (tokens.Length >= 3 && tokens[0] == "void") name = tokens[2];
             if (tokens.Length >= 6 && tokens[0] == "5")
             {
-                for (var index = 0; index < 5; index++) double.TryParse(tokens[index + 1], out values[index]);
+                for (var index = 0; index < 5; index++) double.TryParse(tokens[index + 1], NumberStyles.Float, CultureInfo.InvariantCulture, out values[index]);
                 break;
             }
         }

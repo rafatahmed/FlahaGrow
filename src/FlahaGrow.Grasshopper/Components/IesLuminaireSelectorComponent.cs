@@ -1,6 +1,8 @@
 using System.Reflection;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using FlahaGrow.Core.Projects;
 using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components;
@@ -14,7 +16,7 @@ public sealed class IesLuminaireSelectorComponent : GH_Component
     protected override void RegisterInputParams(GH_InputParamManager parameters)
     {
         parameters.AddBooleanParameter("Run", "Run", "Open the IES luminaire selector.", GH_ParamAccess.item, false);
-        parameters.AddTextParameter("RadIES folder", "IES", "Optional IES library folder. Leave empty to use the bundled library.", GH_ParamAccess.item);
+        parameters.AddTextParameter("RadIES folder", "IES", "Optional RadIES folder, FlahaGrow library root, or its containing folder. Leave empty to use the bundled library.", GH_ParamAccess.item);
         parameters[1].Optional = true;
     }
 
@@ -31,10 +33,13 @@ public sealed class IesLuminaireSelectorComponent : GH_Component
         dataAccess.GetData(0, ref run);
         dataAccess.GetData(1, ref folder);
         if (!run) return;
-        folder = string.IsNullOrWhiteSpace(folder)
-            ? Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "shared", "Library", "FlahaGrow_Library_Small", "RadIES")
-            : Path.GetFullPath(folder);
-        if (!Directory.Exists(folder)) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "RadIES folder was not found."); return; }
+        try
+        {
+            folder = string.IsNullOrWhiteSpace(folder)
+                ? Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "shared", "Library", "FlahaGrow_Library_Small", LibraryPathResolver.Ies)
+                : new LibraryPathResolver().ResolveSection(folder, LibraryPathResolver.Ies);
+        }
+        catch (Exception exception) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, exception.Message); return; }
 
         var entries = Directory.EnumerateFiles(folder).Where(path => string.Equals(Path.GetExtension(path), ".ies", StringComparison.OrdinalIgnoreCase)).Select(Parse).OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase).ToList();
         using var form = new Form { Text = "FlahaGrow IES Selector", Width = 1000, Height = 650, StartPosition = FormStartPosition.CenterScreen };
@@ -61,7 +66,7 @@ public sealed class IesLuminaireSelectorComponent : GH_Component
         var cct = First(text, @"(?i)\b(?:CCT\D*|)(\d{4,5})\s*K\b") ?? "—";
         var cri = First(text, @"(?i)\b(?:CRI|Ra)\D*(\d{2,3})\b") ?? "—";
         var tilt = Regex.Match(text, @"(?im)^\s*TILT\s*=.*$(?<data>[\s\S]*)");
-        var numeric = tilt.Success ? Regex.Matches(tilt.Groups["data"].Value, @"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?").Select(match => double.TryParse(match.Value, out var value) ? value : 0).ToList() : new List<double>();
+        var numeric = tilt.Success ? Regex.Matches(tilt.Groups["data"].Value, @"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?").Select(match => double.TryParse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : 0).ToList() : new List<double>();
         var lumens = numeric.Count > 1 ? Math.Round(numeric[0] * numeric[1]).ToString() : "—";
         return new IesEntry(path, name.Trim(), lumens, cct, cri, "See IES", "See IES");
     }

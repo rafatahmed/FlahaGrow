@@ -1,5 +1,9 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.RegularExpressions;
+using FlahaGrow.Core.Projects;
+using FlahaGrow.Core.Radiance;
+using FlahaGrow.Grasshopper.Parameters;
 using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components;
@@ -18,10 +22,11 @@ public sealed class IesToRadianceComponent : GH_Component
         parameters.AddNumberParameter("Green", "G", "Green channel multiplier.", GH_ParamAccess.item, 1.0);
         parameters.AddNumberParameter("Blue", "B", "Blue channel multiplier.", GH_ParamAccess.item, 1.0);
         parameters.AddNumberParameter("Multiplier", "M", "Optional ies2rad multiplier.", GH_ParamAccess.item); parameters[5].Optional = true;
-        parameters.AddTextParameter("Project folder", "Project", "Simulation project folder; Luminaire_files is created beside it.", GH_ParamAccess.item);
+        parameters.AddTextParameter("Project folder", "Project", "Simulation project folder; Luminaire_files is created inside it.", GH_ParamAccess.item);
         parameters.AddTextParameter("DAT file", "DAT", "Optional replacement data-file path.", GH_ParamAccess.item); parameters[7].Optional = true;
         parameters.AddBooleanParameter("Run", "Run", "Run ies2rad and rewrite generated .rad files.", GH_ParamAccess.item, false);
         parameters.AddTextParameter("Radiance bin folder", "Bin", "Optional folder containing ies2rad.exe. Leave empty for automatic detection.", GH_ParamAccess.item); parameters[9].Optional = true;
+        parameters.AddParameter(new RadianceParameter(), "Radiance Environment", "Radiance", "Optional checked Radiance Status environment. When connected, it must be ready for electric-light preparation and determines the exact executable environment.", GH_ParamAccess.item); parameters[10].Optional = true;
     }
 
     protected override void RegisterOutputParams(GH_OutputParamManager parameters)
@@ -33,25 +38,35 @@ public sealed class IesToRadianceComponent : GH_Component
 
     protected override void SolveInstance(IGH_DataAccess dataAccess)
     {
-        string ies = string.Empty, name = string.Empty, project = string.Empty, dat = string.Empty, radianceBin = string.Empty;
+        string ies = string.Empty, name = string.Empty, project = string.Empty, dat = string.Empty, radianceBin = string.Empty; var radiance = new RadianceGoo();
         double r = 1, g = 1, b = 1, multiplier = 0; var run = false;
         if (!dataAccess.GetData(0, ref ies) || !dataAccess.GetData(6, ref project)) return;
-        dataAccess.GetData(1, ref name); dataAccess.GetData(2, ref r); dataAccess.GetData(3, ref g); dataAccess.GetData(4, ref b); dataAccess.GetData(5, ref multiplier); dataAccess.GetData(7, ref dat); dataAccess.GetData(8, ref run); dataAccess.GetData(9, ref radianceBin);
+        dataAccess.GetData(1, ref name); dataAccess.GetData(2, ref r); dataAccess.GetData(3, ref g); dataAccess.GetData(4, ref b); dataAccess.GetData(5, ref multiplier); dataAccess.GetData(7, ref dat); dataAccess.GetData(8, ref run); dataAccess.GetData(9, ref radianceBin); dataAccess.GetData(10, ref radiance);
         if (!File.Exists(ies)) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "IES path was not found."); return; }
+        RadianceInstallation? verifiedEnvironment;
+        try
+        {
+            verifiedEnvironment = radiance.IsValid ? RadianceExecutionEnvironment.Require(radiance.Value, AnalysisWorkflow.ElectricLighting, radianceBin) : null;
+            if (!radiance.IsValid && Params.Input[10].SourceCount > 0) throw new InvalidOperationException("Connected Radiance environment is unresolved.");
+        }
+        catch (Exception exception) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, exception.Message); return; }
         name = string.IsNullOrWhiteSpace(name) ? Path.GetFileNameWithoutExtension(ies) : name.Trim();
         var outputStem = SanitizeStem(name, Path.GetFileNameWithoutExtension(ies));
         var (nr, ng, nb) = Normalize(r, g, b);
-        project = Path.GetFullPath(project);
-        var outputFolder = Path.Combine(project, "Luminaire_files");
+        project = ProjectLayout.Absolute(project);
+        var outputFolder = LuminairePathResolver.ResolveFolder(project);
         Directory.CreateDirectory(outputFolder);
         var command = $"ies2rad -o {outputStem} -t default{(multiplier != 0 ? $" -m {multiplier}" : string.Empty)} {ies}";
         if (!run) { dataAccess.SetData(2, $"Waiting for Run. {command}"); return; }
         try
         {
             var existingFiles = Directory.EnumerateFiles(outputFolder).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var executable = FindIes2Rad(radianceBin);
+            var executable = verifiedEnvironment is null ? FindIes2Rad(radianceBin)
+                : verifiedEnvironment.Executables.GetValueOrDefault("ies2rad");
             if (executable is null) throw new FileNotFoundException("ies2rad.exe was not found. Provide the Radiance bin folder.");
             var start = new ProcessStartInfo(executable) { WorkingDirectory = outputFolder, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+            if (verifiedEnvironment is not null)
+                foreach (var variable in RadianceStatusService.ChildEnvironment(verifiedEnvironment)) start.Environment[variable.Key] = variable.Value;
             start.ArgumentList.Add("-o"); start.ArgumentList.Add(outputStem); start.ArgumentList.Add("-t"); start.ArgumentList.Add("default");
             if (multiplier != 0) { start.ArgumentList.Add("-m"); start.ArgumentList.Add(multiplier.ToString(System.Globalization.CultureInfo.InvariantCulture)); }
             start.ArgumentList.Add(ies);
@@ -93,7 +108,7 @@ public sealed class IesToRadianceComponent : GH_Component
     private static void RewriteRad(string path, double r, double g, double b, string? datPath)
     {
         var rgb = new Regex(@"^\s*3\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s*$");
-        var lines = File.ReadAllLines(path).Select(line => rgb.IsMatch(line) ? $"3 {r:0.############} {g:0.############} {b:0.############}" : line).ToList();
+        var lines = File.ReadAllLines(path).Select(line => rgb.IsMatch(line) ? string.Format(CultureInfo.InvariantCulture, "3 {0:0.############} {1:0.############} {2:0.############}", r, g, b) : line).ToList();
         if (!string.IsNullOrWhiteSpace(datPath)) lines = lines.Select(line => Regex.Replace(line, @"(?i)\S+\.dat", $"\"{datPath}\"")).ToList();
         File.WriteAllLines(path, lines);
     }

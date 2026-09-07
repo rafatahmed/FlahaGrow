@@ -92,13 +92,5 @@ public sealed class ProjectPathResolver
         return Path.GetDirectoryName(path)!;
     }
 
-    private ResolvedLocation Library(string path, PathSource source)
-    {
-        bool IsLibrary(string folder) => new[] { "RadMaterials", "RadGlazing", "RadIES" }
-            .All(name => reader.DirectoryExists(Path.Combine(folder, name)));
-        if (IsLibrary(path)) return new(path, source, true);
-        var child = Path.Combine(path, "FlahaGrow_Library_Small");
-        if (IsLibrary(child)) return new(child, source, true);
-        throw new DirectoryNotFoundException("Library must contain RadMaterials, RadGlazing, and RadIES, directly or under FlahaGrow_Library_Small.");
-    }
+    private ResolvedLocation Library(string path, PathSource source) => new(new LibraryPathResolver(reader).ResolveAssetRoot(path), source, true);
 }
