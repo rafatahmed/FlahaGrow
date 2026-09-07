@@ -31,7 +31,7 @@ The resulting add-on is `src/FlahaGrow.Grasshopper/bin/Debug/net7.0-windows/Flah
 ## Local install and debugging
 
 1. Close Rhino before replacing a loaded `.gha` file.
-2. Copy the generated `FlahaGrow.gha` into the Grasshopper Libraries folder, normally `%AppData%\Grasshopper\Libraries`.
+2. Copy the generated `FlahaGrow.gha` and its sibling `FlahaGrow.Core.dll` into the Grasshopper Libraries folder, normally `%AppData%\Grasshopper\Libraries`. Copy `src/Library` to `shared/Library` beside those assemblies, or provide an explicit Library location to the Setup component.
 3. Start Rhino, open Grasshopper, and find the **FlahaGrow** category. The plugin provides **Setup**, **Materials**, **Electric Light**, **Annual**, and **Metrics** tabs. The Annual tab includes annual Radiance execution, cache loading, progress monitoring, date/hour selection, illuminance readers, and sensor markers.
 4. For debugging, configure Visual Studio to start `Rhino.exe`, build the Debug configuration, then attach/run Rhino before opening Grasshopper.
 
@@ -43,7 +43,7 @@ Create one public class per component under `Components/`, inherit from `GH_Comp
 
 ## Packaging
 
-`tools/New-YakPackage.ps1` builds the Release `.gha`, stages it with the material library under `shared/Library`, and invokes `yak build`.
+`tools/New-YakPackage.ps1` builds the Release `.gha` and shared core assembly, stages both with the material library under `shared/Library`, and invokes `yak build --platform win`. It stops if the build fails or either assembly is missing. Use `-NoRestore` when dependencies have already been restored.
 
 ```powershell
 .\tools\New-YakPackage.ps1 -Version 0.1.0
@@ -52,6 +52,8 @@ Create one public class per component under `Components/`, inherit from `GH_Comp
 The generated `.yak` file remains under `artifacts/`, which is intentionally untracked. Review the staged `manifest.yml`, plugin assembly, and bundled library before publishing through Rhino's Package Manager or `yak push`.
 
 ## Verification checklist
+
+For the new project-based Setup components, see [the Setup user guide](setup-components.md). Run `tools/Test-SetupComponents.ps1` to verify old/new component identities, parameter archives, restored action latches, and direct component solves outside Rhino. This is complementary to the host checks below.
 
 1. Build without warnings or errors.
 2. Load `FlahaGrow.gha` in Grasshopper with no assembly-load messages.

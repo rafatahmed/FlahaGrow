@@ -21,6 +21,7 @@ public sealed class WorkingDirectoryComponent : GH_Component
     }
 
     public override Guid ComponentGuid => new("3bc3011e-2b2f-4c14-9344-dcb3554f3722");
+    public override GH_Exposure Exposure => GH_Exposure.hidden;
 
     protected override void RegisterInputParams(GH_InputParamManager parameters)
     {

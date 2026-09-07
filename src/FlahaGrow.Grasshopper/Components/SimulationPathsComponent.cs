@@ -19,6 +19,7 @@ public sealed class SimulationPathsComponent : GH_Component
     }
 
     public override Guid ComponentGuid => new("71c6a045-9308-4a0c-9f72-cab76ceefa5c");
+    public override GH_Exposure Exposure => GH_Exposure.hidden;
 
     protected override void RegisterInputParams(GH_InputParamManager parameters)
     {

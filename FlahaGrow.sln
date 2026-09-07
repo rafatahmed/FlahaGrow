@@ -4,6 +4,10 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlahaGrow.Grasshopper", "src\\FlahaGrow.Grasshopper\\FlahaGrow.Grasshopper.csproj", "{0938E345-1625-4858-B71B-63A1D8279E0C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlahaGrow.Core", "src\FlahaGrow.Core\FlahaGrow.Core.csproj", "{892081DF-C6D7-4102-AD84-50500243A26F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlahaGrow.Core.Tests", "tests\FlahaGrow.Core.Tests\FlahaGrow.Core.Tests.csproj", "{D7258917-4C58-4F1A-B730-EF01373F8FC5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -14,5 +18,13 @@ Global
 		{0938E345-1625-4858-B71B-63A1D8279E0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0938E345-1625-4858-B71B-63A1D8279E0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0938E345-1625-4858-B71B-63A1D8279E0C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{892081DF-C6D7-4102-AD84-50500243A26F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{892081DF-C6D7-4102-AD84-50500243A26F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{892081DF-C6D7-4102-AD84-50500243A26F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{892081DF-C6D7-4102-AD84-50500243A26F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D7258917-4C58-4F1A-B730-EF01373F8FC5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D7258917-4C58-4F1A-B730-EF01373F8FC5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D7258917-4C58-4F1A-B730-EF01373F8FC5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D7258917-4C58-4F1A-B730-EF01373F8FC5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

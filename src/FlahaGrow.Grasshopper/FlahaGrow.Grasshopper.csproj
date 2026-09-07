@@ -12,6 +12,7 @@
     <Description>Annual greenhouse-lighting simulation components for Grasshopper.</Description>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../FlahaGrow.Core/FlahaGrow.Core.csproj" />
     <PackageReference Include="Grasshopper" Version="8.33.26188.13001" />
   </ItemGroup>
 </Project>

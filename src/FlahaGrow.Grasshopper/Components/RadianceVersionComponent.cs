@@ -12,6 +12,7 @@ public sealed class RadianceVersionComponent : GH_Component
     }
 
     public override Guid ComponentGuid => new("272aa83d-9898-460d-8cbd-7f49374153ba");
+    public override GH_Exposure Exposure => GH_Exposure.hidden;
 
     protected override void RegisterInputParams(GH_InputParamManager parameters)
     {

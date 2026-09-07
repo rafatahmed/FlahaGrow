@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net7.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <ShouldRemoveRhinoReferences>false</ShouldRemoveRhinoReferences>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/FlahaGrow.Grasshopper/FlahaGrow.Grasshopper.csproj" />
+    <PackageReference Include="Grasshopper" Version="8.33.26188.13001" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

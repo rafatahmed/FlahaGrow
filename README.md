@@ -56,6 +56,8 @@ The current repository contains the three-channel/RGB workflow. Hyperspectral si
 
 ## Compiled Grasshopper plugin
 
+Setup provides three visible components: Simulation Paths, Working Directory, and Radiance Status. Radiance is detected automatically with standalone preferred and Ladybug Tools supported; workflow comes from the connected analysis. Previous components remain loadable but are hidden from placement. See [the Setup guide](docs/setup-components.md) for connections, installation requirements, and remaining host checks.
+
 `src/FlahaGrow.Grasshopper` is the Rhino 8 / .NET 7 compiled plugin. It produces a `.gha` assembly with the **FlahaGrow** Grasshopper category and provides setup, material and luminaire selection, annual Radiance execution, cache creation, point-in-time and sensor illuminance readers, sensor/date-hour tools, PPFD conversion, annual DLI aggregation, DLI target assessment, and lighting-energy calculation.
 
 See [the plugin development guide](docs/grasshopper-plugin.md) to build, install locally, debug, and package the add-on.

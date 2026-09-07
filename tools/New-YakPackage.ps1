@@ -2,7 +2,8 @@
 param(
     [ValidatePattern('^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$')]
     [string]$Version = '0.1.0',
-    [string]$YakPath = ''
+    [string]$YakPath = '',
+    [switch]$NoRestore
 )
 
 $ErrorActionPreference = 'Stop'
@@ -11,6 +12,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $pluginProject = Join-Path $repoRoot 'src\FlahaGrow.Grasshopper\FlahaGrow.Grasshopper.csproj'
 $stagingDirectory = Join-Path $repoRoot 'artifacts\yak-staging'
 $pluginOutput = Join-Path $repoRoot 'src\FlahaGrow.Grasshopper\bin\Release\net7.0-windows\FlahaGrow.gha'
+$coreOutput = Join-Path (Split-Path -Parent $pluginOutput) 'FlahaGrow.Core.dll'
 
 if ([string]::IsNullOrWhiteSpace($YakPath)) {
     $yakCommand = Get-Command yak -ErrorAction SilentlyContinue
@@ -26,7 +28,21 @@ if (-not (Test-Path -LiteralPath $YakPath)) {
     throw "Yak was not found. Install Rhino 8 or provide -YakPath."
 }
 
-dotnet build $pluginProject --configuration Release "/p:Version=$Version"
+$buildArguments = @('build', $pluginProject, '--configuration', 'Release', '-m:1', "/p:Version=$Version")
+if ($NoRestore) { $buildArguments += '--no-restore' }
+& dotnet @buildArguments
+if ($LASTEXITCODE -ne 0) { throw "Plugin build failed with exit code $LASTEXITCODE. Packaging stopped." }
+foreach ($output in @($pluginOutput, $coreOutput)) {
+    if (-not (Test-Path -LiteralPath $output -PathType Leaf)) { throw "Required package assembly missing: $output" }
+}
+
+$expectedStaging = [IO.Path]::GetFullPath((Join-Path $repoRoot 'artifacts\yak-staging'))
+if ([IO.Path]::GetFullPath($stagingDirectory) -ne $expectedStaging) { throw 'Unexpected package staging location.' }
+foreach ($target in @((Join-Path $repoRoot 'artifacts'), $stagingDirectory)) {
+    if (Test-Path -LiteralPath $target) {
+        if ((Get-Item -LiteralPath $target -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Staging cannot traverse a junction: $target" }
+    }
+}
 
 if (Test-Path -LiteralPath $stagingDirectory) {
     Remove-Item -LiteralPath $stagingDirectory -Recurse -Force
@@ -34,6 +50,7 @@ if (Test-Path -LiteralPath $stagingDirectory) {
 
 New-Item -ItemType Directory -Path $stagingDirectory | Out-Null
 Copy-Item -LiteralPath $pluginOutput -Destination $stagingDirectory
+Copy-Item -LiteralPath $coreOutput -Destination $stagingDirectory
 Copy-Item -LiteralPath (Join-Path $repoRoot 'package\manifest.yml') -Destination $stagingDirectory
 $stagedManifest = Join-Path $stagingDirectory 'manifest.yml'
 $manifest = Get-Content -LiteralPath $stagedManifest -Raw
@@ -44,7 +61,7 @@ Copy-Item -LiteralPath (Join-Path $repoRoot 'src\Library') -Destination (Join-Pa
 
 Push-Location $stagingDirectory
 try {
-    & $YakPath build
+    & $YakPath build --platform win
     if ($LASTEXITCODE -ne 0) {
         throw "yak build failed with exit code $LASTEXITCODE."
     }
