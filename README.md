@@ -52,6 +52,8 @@ Generated simulation results are deliberately excluded from Git; retain only reu
 
 ## Current status
 
+See [implementation and installed-build status](docs/current-status.md), [workflow and migration wiring](docs/component-migration.md), and the [25-script input/output audit](docs/component-io-audit-2026-09-09.md). The September 10 update adds stricter annual-result checks; the inspected legacy study contains negative illuminance, so a corrected full run and numerical validation are still required.
+
 The current repository contains the three-channel/RGB workflow. Hyperspectral simulation is a planned extension; its interfaces and validation criteria are recorded in [the project frame](docs/project-frame.md).
 
 ## Compiled Grasshopper plugin

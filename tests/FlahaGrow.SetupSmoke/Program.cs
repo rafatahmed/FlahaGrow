@@ -45,9 +45,9 @@ var visible = cases.Where(c => c.Component.Exposure != GH_Exposure.hidden).Selec
 if (!visible.SequenceEqual(new[] { "Radiance Status", "Simulation Paths", "Working Directory" })) throw new Exception("Setup toolbar has duplicate or missing components.");
 Console.WriteLine("Nine component checks passed; exactly three visible Setup components. This does not exercise the Rhino canvas or UI scheduler.");
 
-foreach (var (component, inputs) in new[] { ((GH_Component)new AnnualSimulationComponent(), 8), ((GH_Component)new IesToRadianceComponent(), 11) })
+foreach (var (component, inputs, radianceIndex) in new[] { ((GH_Component)new AnnualSimulationComponent(), 9, 7), ((GH_Component)new IesToRadianceComponent(), 11, 10) })
 {
-    if (component.Params.Input.Count != inputs || component.Params.Input[^1] is not RadianceParameter || !component.Params.Input[^1].Optional)
+    if (component.Params.Input.Count != inputs || component.Params.Input[radianceIndex] is not RadianceParameter || !component.Params.Input[radianceIndex].Optional)
         throw new InvalidOperationException("Verified Radiance environment input mismatch: " + component.Name);
 }
 Console.WriteLine("PASS annual and IES consumers: appended optional verified Radiance environment inputs.");
@@ -55,6 +55,7 @@ Console.WriteLine("PASS annual and IES consumers: appended optional verified Rad
 var testRoot = Path.Combine(Path.GetTempPath(), "FlahaGrow.SetupSmoke", Guid.NewGuid().ToString("N"));
 try
 {
+    AnnualIntegrationChecks.Run(testRoot, args.Length > 1 ? args[1] : null);
     var pathsComponent = new SimulationPathsSetupComponent();
     var pathsData = TestData.Create(new() { [0] = testRoot, [1] = 3, [2] = Path.Combine(args[0], "src", "Library") });
     SolveUntil(pathsComponent, pathsData, () => pathsData.Outputs.ContainsKey(0));
@@ -154,6 +155,13 @@ public class TestData : DispatchProxy
         {
             if (!Inputs.TryGetValue((int)args![0]!, out var value)) return false;
             args[1] = value; return true;
+        }
+        if (method.Name == "GetDataList")
+        {
+            if (!Inputs.TryGetValue((int)args![0]!, out var value)) return false;
+            var list = (System.Collections.IList)args[1]!;
+            foreach (var item in (System.Collections.IEnumerable)value) list.Add(item);
+            return true;
         }
         if (method.Name is "SetData" or "SetDataList") { Outputs[(int)args![0]!] = args[1]; return method.ReturnType == typeof(bool) ? true : null; }
         throw new NotSupportedException(method.Name);

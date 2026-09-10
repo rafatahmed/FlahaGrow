@@ -23,7 +23,9 @@ internal static class AnnualCacheData
         if (hour < 0 || hour >= hours) throw new ArgumentOutOfRangeException(nameof(hour), $"Hour index out of range [0..{hours - 1}].");
         using var stream = File.OpenRead(cachePath); stream.Position = (long)hour * sensors * sizeof(float);
         var bytes = new byte[sensors * sizeof(float)]; stream.ReadExactly(bytes);
-        return Enumerable.Range(0, sensors).Select(index => (double)BitConverter.ToSingle(bytes, index * sizeof(float))).ToList();
+        var values = Enumerable.Range(0, sensors).Select(index => (double)BitConverter.ToSingle(bytes, index * sizeof(float))).ToList();
+        RequireIlluminance(values);
+        return values;
     }
     internal static List<double> Sensor(string cachePath, int sensor)
     {
@@ -31,7 +33,13 @@ internal static class AnnualCacheData
         if (sensor < 0 || sensor >= sensors) throw new ArgumentOutOfRangeException(nameof(sensor), $"Sensor index out of range [0..{sensors - 1}].");
         using var stream = File.OpenRead(cachePath); var bytes = new byte[sizeof(float)]; var values = new List<double>(hours);
         for (var hour = 0; hour < hours; hour++) { stream.Position = ((long)hour * sensors + sensor) * sizeof(float); stream.ReadExactly(bytes); values.Add(BitConverter.ToSingle(bytes)); }
+        RequireIlluminance(values);
         return values;
+    }
+    internal static void RequireIlluminance(IEnumerable<double> values)
+    {
+        if (values.Any(value => !double.IsFinite(value) || value < 0))
+            throw new InvalidDataException("Cache contains negative or nonfinite illuminance. Investigate the annual calculation and rebuild from corrected results; values were not clamped.");
     }
     internal static double Factor(object? value)
     {

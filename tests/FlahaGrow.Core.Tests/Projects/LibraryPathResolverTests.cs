@@ -38,6 +38,14 @@ public sealed class LibraryPathResolverTests
         Assert.Throws<DirectoryNotFoundException>(() => Resolver.ResolveSection(@"D:\missing", LibraryPathResolver.Glazing));
     }
 
+    [Fact]
+    public void IncompleteLibraryCannotBeMistakenForALegacySelectorFolder()
+    {
+        reader.Directories.Add(@"D:\bundle");
+        reader.Directories.Add(@"D:\bundle\RadMaterials");
+        Assert.Throws<DirectoryNotFoundException>(() => Resolver.ResolveSection(@"D:\bundle", LibraryPathResolver.Glazing));
+    }
+
     private void AddAssetRoot(string root)
     {
         reader.Directories.Add(root);

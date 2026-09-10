@@ -1,8 +1,7 @@
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using Grasshopper.Kernel;
+using FlahaGrow.Core.Annual;
 
 namespace FlahaGrow.Grasshopper.Components;
 
@@ -19,38 +18,57 @@ public sealed class AnnualResultCacheComponent : GH_Component
         try
         {
             folder = Path.GetFullPath(folder); var raw = Path.Combine(folder, "annualRfinal.f32"); var meta = Path.Combine(folder, "annualRfinal.meta.json");
-            if (!build) { if (!File.Exists(raw) || !File.Exists(meta)) { da.SetData(3, "No cache yet — set Build True."); return; } var cached = JsonSerializer.Deserialize<CacheMeta>(File.ReadAllText(meta))!; da.SetData(0, raw); da.SetData(1, cached.Sensors); da.SetData(2, cached.Hours); da.SetData(3, "Cache exists"); return; }
-            var parts = Directory.EnumerateFiles(folder, "annualRfinal_part*.ill").OrderBy(path => path).ToList(); if (parts.Count == 0) throw new FileNotFoundException("No annualRfinal_part*.ill files were found.");
-            var matrices = parts.Select(ReadMatrix).ToList(); var hours = matrices[0].Count; if (matrices.Any(matrix => matrix.Count != hours)) throw new InvalidDataException("Part files have different hour counts.");
-            if (matrices.Any(matrix => matrix.Any(row => row.Length != matrix[0].Length))) throw new InvalidDataException("A part file contains rows with inconsistent sensor counts.");
-            var sensors = matrices.Sum(matrix => matrix[0].Length); using var stream = File.Create(raw);
-            for (var hour = 0; hour < hours; hour++) foreach (var matrix in matrices) foreach (var value in matrix[hour]) stream.Write(BitConverter.GetBytes(value));
-            File.WriteAllText(meta, JsonSerializer.Serialize(new CacheMeta(sensors, hours, 1, "row-major hours x sensors"), new JsonSerializerOptions { WriteIndented = true }));
+            var manifest = AnnualRun.Read(folder);
+            AnnualPartStatus.RequireComplete(folder, manifest);
+            var parts = AnnualRun.RequireResults(folder, manifest);
+            var signature = AnnualRun.HashFile(Path.Combine(folder, AnnualRun.ManifestName)) + ":" + string.Join(":", parts.Select(AnnualRun.HashFile));
+            if (!build) { if (!File.Exists(raw) || !File.Exists(meta)) { da.SetData(3, "No cache yet - set Build True."); return; } var cached = JsonSerializer.Deserialize<CacheMeta>(File.ReadAllText(meta)) ?? throw new InvalidDataException("Empty cache metadata.");
+                if (cached.RunId != manifest.RunId || cached.Signature != signature || cached.Sensors != manifest.Sensors
+                    || cached.Hours != manifest.Hours || cached.Ncomp != 1 || cached.ValidationVersion != 1
+                    || new FileInfo(raw).Length != checked((long)cached.Sensors * cached.Hours * sizeof(float))
+                    || cached.CacheHash != AnnualRun.HashFile(raw))
+                    throw new InvalidDataException("Cache does not match this run and its current results. Rebuild the cache.");
+                da.SetData(0, raw); da.SetData(1, cached.Sensors); da.SetData(2, cached.Hours); da.SetData(3, "Cache matches run " + manifest.RunId); return; }
+            var hours = manifest.Hours; var sensors = manifest.Sensors;
+            var temporary = raw + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                var readers = parts.Select((path, index) => AnnualMatrix.Rows(path, hours, manifest.Parts[index].Sensors).GetEnumerator()).ToArray();
+                try
+                {
+                    using var stream = File.Create(temporary);
+                    using var writer = new BinaryWriter(stream);
+                    for (var hour = 0; hour < hours; hour++)
+                        foreach (var reader in readers)
+                        {
+                            if (!reader.MoveNext()) throw new InvalidDataException("Truncated annual matrix.");
+                            foreach (var value in reader.Current) writer.Write(value);
+                        }
+                    foreach (var reader in readers)
+                        if (reader.MoveNext()) throw new InvalidDataException("Extra annual matrix rows.");
+                }
+                finally { foreach (var reader in readers) reader.Dispose(); }
+                var after = AnnualRun.HashFile(Path.Combine(folder, AnnualRun.ManifestName)) + ":" + string.Join(":", parts.Select(AnnualRun.HashFile));
+                if (after != signature) throw new InvalidDataException("Run results changed while building the cache. Wait for the run to finish.");
+                AnnualPartStatus.RequireComplete(folder, manifest);
+                if (File.Exists(meta)) File.Delete(meta);
+                File.Move(temporary, raw, true);
+                var metadata = JsonSerializer.Serialize(new CacheMeta(sensors, hours, 1, "row-major hours x sensors", manifest.RunId, signature, 1, AnnualRun.HashFile(raw)), new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(temporary, metadata);
+                File.Move(temporary, meta, true);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
             da.SetData(0, raw); da.SetData(1, sensors); da.SetData(2, hours); da.SetData(3, $"Merged + cached: {sensors} sensors × {hours} hours");
         }
-        catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
+        catch (Exception ex) { da.SetData(3, ex.Message); AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
     }
-    private static List<float[]> ReadMatrix(string path)
-    {
-        var matrix = new List<float[]>();
-        foreach (var line in File.ReadLines(path))
-        {
-            var text = line.Trim();
-            if (text.Length == 0 || !NumericLine.IsMatch(text)) continue;
-            var tokens = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            var row = new float[tokens.Length];
-            for (var index = 0; index < tokens.Length; index++)
-                if (!float.TryParse(tokens[index], NumberStyles.Float, CultureInfo.InvariantCulture, out row[index]))
-                    throw new InvalidDataException($"Non-numeric annual-result value in {Path.GetFileName(path)} after the Radiance header.");
-            matrix.Add(row);
-        }
-        if (matrix.Count == 0) throw new InvalidDataException($"No annual-result matrix data was found in {Path.GetFileName(path)}.");
-        return matrix;
-    }
-    private static readonly Regex NumericLine = new(@"^[\s+\-.0-9eE]+$", RegexOptions.Compiled);
     private sealed record CacheMeta(
         [property: JsonPropertyName("sensors")] int Sensors,
         [property: JsonPropertyName("hours")] int Hours,
         [property: JsonPropertyName("ncomp")] int Ncomp,
-        [property: JsonPropertyName("order")] string Order);
+        [property: JsonPropertyName("order")] string Order,
+        [property: JsonPropertyName("runId")] Guid RunId,
+        [property: JsonPropertyName("sourceSignature")] string Signature,
+        [property: JsonPropertyName("validationVersion")] int ValidationVersion,
+        [property: JsonPropertyName("cacheHash")] string CacheHash);
 }

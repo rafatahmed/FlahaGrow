@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$NoRestore)
+param([switch]$NoRestore, [string]$RadianceBin = '')
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $repoRoot 'tests\FlahaGrow.SetupSmoke\FlahaGrow.SetupSmoke.csproj'
@@ -14,5 +14,5 @@ Copy-Item -LiteralPath (Join-Path $output 'FlahaGrow.gha') -Destination (Join-Pa
 $depsPath = Join-Path $output 'FlahaGrow.SetupSmoke.deps.json'
 $deps = [IO.File]::ReadAllText($depsPath).Replace('FlahaGrow.gha', 'FlahaGrow.dll')
 [IO.File]::WriteAllText($depsPath, $deps)
-& dotnet (Join-Path $output 'FlahaGrow.SetupSmoke.dll') $repoRoot
+& dotnet (Join-Path $output 'FlahaGrow.SetupSmoke.dll') $repoRoot $RadianceBin
 if ($LASTEXITCODE -ne 0) { throw 'Setup component checks failed.' }

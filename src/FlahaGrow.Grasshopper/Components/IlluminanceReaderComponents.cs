@@ -25,10 +25,10 @@ public abstract class IlluminanceReaderComponent : GH_Component
             var expectedBytes = checked((long)meta.Sensors * meta.Hours * sizeof(float));
             if (new FileInfo(path).Length != expectedBytes) throw new InvalidDataException($"Cache size mismatch: got {new FileInfo(path).Length / sizeof(float)} floats, expected {(long)meta.Sensors * meta.Hours}.");
             using var f = File.OpenRead(path); var values = new List<float>();
-            if (mode.Equals("hour", StringComparison.OrdinalIgnoreCase))
+            if (mode.Trim().Equals("hour", StringComparison.OrdinalIgnoreCase))
             {
                 if (index < 0 || index >= meta.Hours) throw new ArgumentOutOfRangeException(nameof(index), $"Hour index out of range [0..{meta.Hours - 1}]");
-                f.Position = index * meta.Sensors * sizeof(float); var b = new byte[meta.Sensors * sizeof(float)]; f.ReadExactly(b);
+                f.Position = checked((long)index * meta.Sensors * sizeof(float)); var b = new byte[checked(meta.Sensors * sizeof(float))]; f.ReadExactly(b);
                 for (var i = 0; i < meta.Sensors; i++) values.Add(BitConverter.ToSingle(b, i * sizeof(float)));
                 da.SetData(1, $"OK: hour {index} → {values.Count} sensor values.");
             }
@@ -39,9 +39,10 @@ public abstract class IlluminanceReaderComponent : GH_Component
                 for (var h = 0; h < meta.Hours; h++) { f.Position = ((long)h * meta.Sensors + index) * sizeof(float); f.ReadExactly(b); values.Add(BitConverter.ToSingle(b)); }
                 da.SetData(1, $"OK: sensor {index} → {values.Count} hour values.");
             }
+            AnnualCacheData.RequireIlluminance(values.Select(value => (double)value));
             da.SetDataList(0, values);
         }
-        catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
+        catch (Exception ex) { da.SetData(1, ex.Message); AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
     }
     private sealed record Meta(
         [property: JsonPropertyName("sensors")] int Sensors,

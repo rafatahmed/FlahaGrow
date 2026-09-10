@@ -2,23 +2,27 @@
 
 Audit date: 2026-09-07. Original audit revision: `254d720`. Implementation baseline: `dd57f58`.
 
+Live-result follow-up (2026-09-10): [FlahGrow01 audit](annual-result-audit-2026-09-10.md) confirmed zero cache mismatches but 7,584 negative simulation values, and Rhino loading revision `254d720`. Working-tree fixes cover actual Radiance headers, negative-result rejection, quality/direct-stage settings and reader seek/mode handling. Installation is complete; post-restart host verification and full-study numerical validation remain pending. See [current status](current-status.md).
+
+Input/output follow-up (2026-09-09): the [25-script component contract audit and wiring guide](component-io-audit-2026-09-09.md) records IO01–IO12. Newly identified gaps include spectral calculation drift, annual quality/custom-input drift, IES rerun output ownership, and lost legacy outputs/UI capabilities. These remain open alongside the existing F/C findings. Setup readiness and F01–F04 completion do not certify Python parity or a complete study workflow.
+
 ## Scope and assumptions
 
 This began as a repository map and implementation audit at `254d720`; it is now the implementation tracker after the Setup foundation in `dd57f58`. The compiled plugin is treated as the primary implementation; the Python components are migration references. It is not a certification of simulation accuracy. The pre-existing untracked `None/` directory remains excluded and untouched.
 
 Setup is implemented and verified in isolation, but the annual pipeline still has correctness and result-integrity defects that must be resolved before relying on it for study results. The [Setup consistency review](setup-consistency-review-2026-09-07.md) defines the producer/consumer gaps that the next implementation stages must close.
 
-## Implementation status at `dd57f58`
+## Implementation status (updated 2026-09-10)
 
 | Area | Status | Evidence and boundary |
 | --- | --- | --- |
-| Project paths, manifests, workspace initialization, and typed Setup contexts | Implemented | `FlahaGrow.Core` supplies path, workspace, manifest, and Radiance services; the visible Setup trio is tested. It does not yet make downstream runners consume those contexts. |
+| Project paths, manifests, workspace initialization, and typed Setup contexts | Implemented | `FlahaGrow.Core` supplies path, workspace, manifest, and Radiance services; the visible Setup trio is tested. Annual and IES runners consume optional checked environments; annual runs can be owned by the Setup analysis. |
 | Radiance discovery and workflow readiness | Implemented; host validation pending | `Radiance Status` selects and checks an installation for annual daylight or electric preparation. Annual and IES runners consume its typed environment when connected; legacy definitions still use independent discovery. See C01 in the consistency review. |
 | Package build failure handling | Resolved | `tools/New-YakPackage.ps1` checks `$LASTEXITCODE` immediately after `dotnet build`; audit F10 is closed at source level. Failure injection has not been repeated. |
-| Annual execution and result-integrity remediation | Not started | F01–F04, F08, F11, and F12 remain open. No run manifest or validated cache format exists yet. |
+| Annual execution and result-integrity remediation | In progress | F01–F04 are implemented and tested: matched sky bases, isolated runs, strict matrices, checked commands, and validated completion. Snapshot copying also removes F12's same-path copy failure. F08's option allowlist remains open. F11 hour seeks now use checked 64-bit arithmetic; large-cache stress validation remains pending. See [annual run isolation](annual-run-isolation.md). |
 | Electric-light component-consistency remediation | In progress | C01, C03, C04, and F07 are implemented: runners can use the checked environment, conversion and compilation share a project-local folder, selectors accept the Setup library root and legacy direct folders, and machine-readable numbers use invariant culture. C05 remains open. |
 | Selector persistence and material-parsing remediation | Not started | F06 and F09 remain open. |
-| Migration documentation and full Rhino workflow validation | Not started | C06 in the consistency review remains open. Automated Setup checks do not exercise real canvas wiring, menus, or UI scheduling. |
+| Migration documentation and full Rhino workflow validation | Documentation reconciled; host verification pending | Identity-specific migration and wiring guide now replace the stale tables. Saved-definition migration, lifecycle and numerical reference validation remain open. |
 
 The original findings below are retained as the evidence baseline. `F10` is the only finding closed by `dd57f58`; all other finding statuses are unchanged unless explicitly superseded by a later verified implementation.
 
@@ -67,6 +71,8 @@ Correction: derive both settings from one validated subdivision and test both su
 
 ### F02 — High: Result-folder reuse can silently mix studies
 
+Status, 2026-09-08: implemented in the working tree. Annual preparation creates a unique run folder with input/sensor identity and declared parts. Cache and progress consume only that manifest; incomplete declared sets and changed cache sources are rejected. Legacy manifest-free result folders require regeneration. The following describes the original audited defect.
+
 Evidence: `AnnualSimulationComponent.cs:48` and `AnnualResultCacheComponent.cs:23`, under the Components directory above.
 
 The runner writes one part for ten or fewer sensors and four for larger grids. It neither isolates runs nor invalidates previous results. The cache builder merges every matching `annualRfinal_part*.ill`. After a four-part run, a single-part rerun leaves parts 1–3 available for merging with the new part 0. Missing parts are also accepted if at least one matching file exists. Equal hour counts do not identify this corruption.
@@ -74,6 +80,8 @@ The runner writes one part for ten or fewer sensors and four for larger grids. I
 Correction: give each run a manifest and isolated output location; load only its declared complete part set. Record input identity and sensor ordering with the cache.
 
 ### F03 — High: Corrupt or truncated matrices are accepted
+
+Status, 2026-09-08: implemented and tested. `AnnualMatrix` requires scalar ASCII headers, exact manifest weather-step/sensor dimensions, and finite float32 values; malformed, extra, and missing data fail. Cache streaming and staged publication prevent invalid data from replacing a valid cache. Source and binary hashes are checked on reopening. Original evidence follows.
 
 Evidence: `AnnualResultCacheComponent.cs:24` and `:39`.
 
@@ -84,6 +92,8 @@ Reproduced with the actual parser method extracted into a local harness: a file 
 Correction: parse metadata explicitly, distinguish headers from data, reject malformed/nonfinite values, enforce dimensions, and publish cache files only after successful validation.
 
 ### F04 — High: Failed simulation commands still reach “Completed”
+
+Status, 2026-09-08: implemented and tested. `AnnualBatch` checks each command separately, including both former pipeline sides, records failing step/exit/stderr, and stops downstream work. One-shot locks prevent in-place reruns. `AnnualPartStatus` reports Completed only after command success and full matrix validation. Tests execute Windows batches for producer/consumer failures and validate real installed `rmtxop` output and failure. Full annual Rhino study validation remains separate. Original evidence follows.
 
 Evidence: `AnnualSimulationComponent.cs:116`–`:123`; `AnnualSimulationProgressComponent.cs:31`–`:33`.
 
@@ -145,6 +155,8 @@ Correction: check `$LASTEXITCODE` immediately after dotnet build and abort befor
 
 ### F11 — Medium: hour reads overflow for large caches
 
+Status, 2026-09-10: source fix implemented. Hour seek multiplication starts with checked long arithmetic; whitespace mode handling is corrected. Reader regressions pass; a multi-gigabyte cache stress test remains pending. Original evidence follows.
+
 Evidence: `IlluminanceReaderComponents.cs:31`.
 
 `index * meta.Sensors * sizeof(float)` is calculated as a 32-bit integer before assignment to the stream's long Position. At hour 8,000 and 100,000 sensors the intended byte offset is 3,200,000,000, which exceeds Int32. Other cache access code already casts to long before multiplication.
@@ -171,7 +183,7 @@ Correction: compare normalized source/destination paths and skip the copy when t
 - `Simulation Paths` describes the optional Library input as a folder containing `FlahaGrow_Library_Small`, but the implementation expects that child folder itself.
 - Migration documentation has drift: the first rows of `component-migration.md` associate legacy folder toggles and version execution with components whose actual interfaces differ. Reconcile it with the detailed comparison and current code.
 
-## Validation performed
+## Original validation performed (2026-09-07)
 
 | Check | Result and boundary |
 | --- | --- |
@@ -201,5 +213,13 @@ The generated harness is in ignored `artifacts/audit-harness/`. It runs extracte
 | 2026-09-07 | Working tree | Resolved C03 with a shared project-local luminaire-folder resolver used by IES conversion and luminaire compilation. | 114 Core tests passed and the nine Setup component checks passed. Live `ies2rad` conversion through luminaire compilation has not been exercised in Rhino. |
 | 2026-09-07 | Working tree | Implemented C01 with optional typed verified-Radiance inputs on Annual Simulation and IES to Radiance. Connected inputs require readiness and workflow compatibility, then determine the exact executable and library environment. | 119 Core tests passed. Component smoke checks verify both appended optional typed inputs. Live Rhino execution remains. |
 | 2026-09-07 | Working tree | Resolved F07 at source level: generated Radiance RGB and `xform` values, plus numeric imports from material, glazing, and IES data, use invariant culture. | Plugin and Setup smoke build passed. A non-English Windows-culture Rhino execution remains required. |
+| 2026-09-08 | Working tree | Resolved F01: the annual receiver directive and both weather matrices derive from one validated Tregenza/Reinhart subdivision. | 124 Core tests passed, including Sky 1/4 and invalid-value cases. Plugin and Setup smoke build passed; a full Radiance run remains required. |
+| 2026-09-08 | Working tree | Fixed review regressions: annual checked commands use absolute executable paths, environment checks precede writes, and bundled selector paths are validated. Implemented F02 with unique run manifests, optional Setup Analysis ownership, declared-only results/progress, cache identity, and source preservation (also addressing F12). | 129 Core tests passed. Expanded component integration checks passed for Sky 1/4, wrong environment/workflow/Bin rejection, isolated one/four-part runs, missing/extra files, stale caches, analysis ownership, selector diagnostics, sibling-safe luminaire compilation, and invariant RGB/xform output. Build: zero warnings/errors. No live Radiance or Rhino canvas run. |
+
+| 2026-09-08 | Working tree | Implemented F03/F04: schema-2 expected weather steps, strict streaming matrix validation, cache binary hashes, staged publication, fail-fast commands with separately checked pipeline sides, run-bound command states, and validated progress. | 153 Core tests passed, including actual Windows producer/consumer failure injection and negative exit codes. Expanded component checks cover malformed/equally truncated parts, preserved caches, and failed-part progress. Optional live Ladybug `rmtxop` success/failure checks passed. No full annual Rhino study result has been supplied. |
+
+Live validation record: user-shared Rhino outputs confirm Simulation Paths resolution and Radiance Status readiness for Ladybug Radiance 5.4 (sun-direction execution check). The optional smoke fixture separately confirms real `rmtxop` calculation and command-failure handling. These are recorded as confirmed Setup and small-engine checks; full annual study accuracy and Rhino canvas lifecycle remain unverified.
+
+2026-09-10 consolidation: 156 Core tests, expanded component checks and live nested-header/failure checks passed. Fixed real Radiance headers, negative-result validation, numeric quality mapping/direct settings and reader modes/offsets. Installed version 0.1.1-audit.20260910 with matching hashes and backups after explicit authorization. The old study's negative values originate upstream of an exact cache. See [live audit](annual-result-audit-2026-09-10.md) and [current status](current-status.md).
 
 Future implementation entries must identify the findings closed, link their tests, and state whether validation was source-level, automated, Rhino-host, or end-to-end simulation validation.

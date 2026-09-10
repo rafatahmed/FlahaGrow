@@ -1,12 +1,12 @@
 # Component consistency after Setup
 
-Reviewed revision: `dd57f5866d85abecf3585cefbf23e6fd899e6954` (2026-09-07).
+Original review revision: `dd57f5866d85abecf3585cefbf23e6fd899e6954` (2026-09-07). Implementation status updated 2026-09-10; see [current status](current-status.md).
 
 ## Scope and conclusion
 
-This review compares the latest Setup implementation with downstream compiled components and [the preceding repository audit](repository-audit-2026-09-07.md), which describes revision `254d720`. The previous conversation was unavailable; the latest commit and checked-in Setup contracts are the baseline. This is a verification and integration review, not authorization to redesign the simulation pipeline. No application source, installations, deployments, credentials, or existing studies were changed. The pre-existing untracked `None/` directory was excluded.
+This review compares the latest Setup implementation with downstream compiled components and [the preceding repository audit](repository-audit-2026-09-07.md), which describes revision `254d720`. The previous conversation was unavailable; the latest commit and checked-in Setup contracts are the baseline. This is a verification and integration review, not authorization to redesign the simulation pipeline. The original review made no application or installation changes. Subsequent implementation and the authorized September 10 plugin replacement are recorded separately; existing studies remain unchanged. The pre-existing untracked `None/` directory was excluded.
 
-**Setup is a tested foundation, but the complete component workflow is not yet consistent with it.** Preserving old component GUIDs and ports allows definitions to load; it does not make the old runners consume the new project, analysis, or Radiance contexts.
+**Setup is a tested foundation, but the complete component workflow is not yet consistent with it.** Optional typed environment/analysis integration is implemented. Preserved compiled GUIDs do not certify numerical correctness or original Python canvas migration.
 
 ## Connection matrix
 
@@ -16,14 +16,14 @@ This review compares the latest Setup implementation with downstream compiled co
 | Working Directory `Analysis` → Radiance Status `Analysis` | `AnalysisGoo`; workflow comes from the stored analysis manifest | Matching typed connection. |
 | Working Directory `Project` → existing runners' `Project` | Typed `ProjectGoo` versus text folder inputs | Not a supported direct connection. Use text `Folder` where a project root is required. |
 | Working Directory `Folder` → Annual Simulation `Project` | FlahaGrow root versus Honeybee root containing `model/grid` and `model/scene` | Only usable if that root separately contains the required Honeybee export. Initialization does not create it. |
-| Working Directory `Inputs` / `Runs` → Annual Simulation | Shared input folder / analysis run container versus Honeybee root | Not interchangeable; no import or isolated-run adapter exists. |
-| Setup `Library` → material, glazing, IES selectors | Asset root versus `RadMaterials`, `RadGlazing`, or `RadIES` subfolder | Requires appending the appropriate subfolder. Direct root wiring is not supported by selector lookup. |
-| Radiance Status `Radiance` → annual / IES runners | Typed verified environment versus text `Bin` only | No typed consumer exists in either runner. |
+| Working Directory `Analysis` → Annual Simulation `Analysis` | Optional typed analysis ownership | Run snapshots are created in the analysis's Runs folder. The text Project input remains a separate Honeybee source root. |
+| Setup `Library` → material, glazing, IES selectors | Asset root or legacy selector folder | Shared resolver accepts both; bundled paths also receive missing-folder validation. |
+| Radiance Status `Radiance` → annual / IES runners | Optional typed verified environment | Enforces ready/matching workflow. Annual uses quoted absolute executable paths and checks the environment before writes. |
 | Radiance Status `Bin` → annual / IES runners `Bin` | Text executable folder | Partial bridge; does not transfer readiness, workflow, or calculation-library override. |
-| Radiance Status `Lib` → annual / IES runners | Selected calculation library | Neither runner has a corresponding input. Annual derives sibling `lib`; IES inherits the ambient process environment. |
-| IES to Radiance → Lighting Geometry → Compile Luminaires | `.rad` paths → xform lines → output file | Ports match, but conversion and compilation disagree on the output directory for the same project. |
-| Annual Simulation `Folder` → progress / cache | Flat result folder | Ports match, but consumers do not use analysis identity or an isolated-run manifest. |
-| Cache → illuminance / PPFD / metrics | Existing `.f32`, metadata, numeric lists | Unchanged by Setup; new Setup checks do not validate result correctness. |
+| Radiance Status `Lib` → annual / IES runners | Selected calculation library | Carried through the typed Radiance input; no separate Lib wire is needed. |
+| IES to Radiance → Lighting Geometry → Compile Luminaires | `.rad` paths → xform lines → output file | Shared project-local Luminaire_files folder. |
+| Annual Simulation `Folder` → progress / cache | Isolated run folder containing a manifest | Consumers use only declared parts. Cache verifies manifest/source identity; progress uses the declared denominator. |
+| Cache → illuminance / PPFD / metrics | Existing `.f32`, metadata, numeric lists | Cache layout retained; final matrices and selected reader values now reject negative/nonfinite illuminance. This does not prove scientific accuracy. |
 
 ## Findings and required follow-up
 
@@ -35,13 +35,13 @@ Existing definitions without the new optional input retain the legacy Bin/automa
 
 Validation: Core tests cover ready, not-ready, workflow-mismatched, selected-installation, separate-library, and mismatched-Bin gating. Component smoke checks verify the appended optional typed input on both consumers. A live Rhino run remains required to prove the runners use the checked environment during actual execution.
 
-### C02 — High: workspace identity and run isolation stop at Setup
+### C02 — Run ownership and result validation implemented; full annual host study pending
 
-`Core/Projects/WorkspaceService.cs` creates project-level `inputs/{geometry,weather,sensors,lighting}` and `analyses/<name>/runs`. Annual Simulation still reads `model/grid` and `model/scene` and writes all prepared and result files into its supplied root. Progress and cache scan that folder by wildcard. Neither consumes `AnalysisGoo` or its identity.
+Annual Simulation accepts an optional Analysis context and snapshots the Honeybee source into a unique analysis-owned run folder. Without Analysis it uses a unique folder under the source root's `runs` container. The manifest declares identity, input/sensor hashes, and contiguous result parts. Progress and cache read only declared files. Source grids are preserved, including grids with names other than `0.pts`.
 
-Consequence: separate analysis manifests do not isolate simulation results. Audit F02–F04 remain applicable; naming an analysis alone cannot prevent stale or partial files from being accepted.
+The F02 run-isolation contract is implemented and tested. Cache requires the full declared result set and rejects changed source signatures when reopening. Legacy flat results without manifests are rejected with regeneration guidance. See [annual run isolation](annual-run-isolation.md).
 
-Acceptance: define an explicit Honeybee import/preparation boundary and allocate a unique run directory with declared parts and input/sensor identity. Runner, progress, and cache must agree on that manifest. Test one/four-part runs, reruns, missing parts, command failure, and truncated output.
+F03/F04 are now implemented: schema-2 runs record expected EPW steps, strict scalar ASCII parsing validates all values and dimensions, and each command is checked individually. Cache/progress require successful command states plus validated final matrices. Producer/consumer failures, negative exit codes, equally truncated parts, and invalid final output are covered. Full annual study validation in Rhino remains separate.
 
 ### C03 — Resolved: electric preparation uses one project-local luminaire folder
 
@@ -63,11 +63,11 @@ These are existing behaviors, not proof that legacy compatibility was broken. Th
 
 Acceptance: specify preparation versus execution actions explicitly; introduce bounded asynchronous execution and deliberate trigger semantics with migration coverage. Test idle solves, held True, save/reopen, changed inputs during work, and document closure in Rhino.
 
-### C06 — Medium: migration documentation uses ambiguous old component names
+### C06 — Documentation mappings corrected; saved-definition verification pending
 
-`component-migration.md` rows 1–2 map legacy folder toggles to Simulation Paths and version execution to Radiance Status. Those interfaces belong to the hidden legacy Working Directory and Radiance Version components. The visible new components reuse familiar display names with different contracts.
+The original migration table incorrectly mapped legacy folder toggles to Simulation Paths and version execution to Radiance Status. Those interfaces belong to the hidden legacy Working Directory and Radiance Version components. The rewritten guide now distinguishes them from the visible components that reuse familiar names with different contracts.
 
-Acceptance: distinguish hidden legacy and visible Setup components using class/GUID references, update the migration table, and link the new connection guide. Do not interpret matching display names as port compatibility.
+Documentation acceptance addressed: [migration guide](component-migration.md) distinguishes hidden legacy/visible Setup by class/GUID and links the complete I/O audit. Original saved-definition access/wire verification remains pending; matching display names do not imply compatible ports.
 
 ## Implemented changes
 
@@ -78,19 +78,19 @@ Acceptance: distinguish hidden legacy and visible Setup components using class/G
 - Documented Core DLL and library requirements for installation, and clarified the new Library resolver's accepted layouts. Existing hidden component behavior remains separate.
 - Added `LibraryPathResolver` and updated the material, glazing, and IES selectors to consume the Setup Library output directly while supporting legacy direct folder inputs (C04).
 
-The latest commit did not modify the annual runner, result cache, luminaire pipeline, glazing parser, spectral selection implementation, or illuminance readers. Consequently F01–F09 and F11–F12 are not closed by this commit. This review does not claim a fresh numerical reproduction of every historical finding.
+The original dd57f58 Setup commit did not close the annual/selector findings. Subsequent work is recorded in the repository tracker and live-result audit; do not interpret that historical scope as the current source state.
 
-Subsequent working-tree implementation resolved C01, C03, C04, and F07 as recorded in the repository audit. Annual run isolation, cache validation, selector persistence, and Rhino-host validation remain outstanding.
+Subsequent implementation addresses C01–C04, F01–F04, and F07 as recorded in the repository audit. The review regressions are corrected, with direct component integration checks. Selector persistence, remaining option validation, and full annual Rhino study validation remain outstanding.
 
 ## Validation
 
 | Check | Result |
 | --- | --- |
-| `dotnet test tests/FlahaGrow.Core.Tests --configuration Release --no-restore -m:1` | 106 passed, zero failed/skipped. |
+| `dotnet test tests/FlahaGrow.Core.Tests --configuration Release --no-restore -m:1` | 156 passed, zero failed/skipped (2026-09-10). |
 | `tools/Test-SetupComponents.ps1 -NoRestore` | Nine component GUID/interface/archive checks passed; exactly three visible Setup components. Direct solve, initialization, retained identity, automatic check, explicit-selection isolation, and analysis-workflow checks passed. |
 | Plugin and smoke-project Release build through the component script | Passed with zero warnings/errors. |
 
-No full annual simulation or live Rhino canvas lifecycle test is included. The standalone smoke checks do not exercise real wire conversion, menus, or the Rhino UI scheduler. The downstream findings above are based on source inspection; the passing tests do not cover those integrations.
+The old live annual study was inspected and its cache verified, revealing negative simulation values. No corrected full annual study or live Rhino canvas lifecycle validation is included. The expanded smoke checks exercise annual preparation, manifest-owned cache/progress, strict matrices, failed-part rejection, selector error handling, luminaire path wiring, and invariant RGB/xform writing through compiled methods. Optional `-RadianceBin` checks passed against installed Ladybug `rmtxop` for a real calculation and missing-input failure. User-shared Rhino Setup outputs confirm readiness; real wire conversion, menus, and the Rhino UI scheduler are not covered by the adapter.
 
 ## Recommended implementation sequence
 

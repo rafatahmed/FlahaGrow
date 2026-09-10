@@ -37,9 +37,9 @@ public abstract class OpaqueMaterialSelectorComponent : GH_Component
 
         try
         {
-            folder = string.IsNullOrWhiteSpace(folder)
+            folder = new LibraryPathResolver().ResolveSection(string.IsNullOrWhiteSpace(folder)
                 ? Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "shared", "Library", "FlahaGrow_Library_Small", LibraryPathResolver.Materials)
-                : new LibraryPathResolver().ResolveSection(folder, LibraryPathResolver.Materials);
+                : Path.GetFullPath(folder), LibraryPathResolver.Materials);
         }
         catch (Exception exception) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, exception.Message); return; }
 

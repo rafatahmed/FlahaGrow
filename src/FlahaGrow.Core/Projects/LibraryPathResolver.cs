@@ -29,7 +29,8 @@ public sealed class LibraryPathResolver
         var input = ProjectLayout.Absolute(location);
         foreach (var candidate in new[] { Path.Combine(input, section), Path.Combine(input, "FlahaGrow_Library_Small", section) })
             if (reader.DirectoryExists(candidate)) return candidate;
-        if (reader.DirectoryExists(input)) return input;
+        if (reader.DirectoryExists(input) && !Sections.Any(name => reader.DirectoryExists(Path.Combine(input, name)))
+            && !reader.DirectoryExists(Path.Combine(input, "FlahaGrow_Library_Small"))) return input;
         throw new DirectoryNotFoundException($"{section} folder was not found. Supply that folder, the FlahaGrow library root, or its containing folder.");
     }
 

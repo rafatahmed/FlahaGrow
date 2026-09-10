@@ -1,49 +1,54 @@
-# Legacy-to-plugin component migration contract
+# Component migration and current wiring contract
 
-This document is the implementation contract for the compiled FlahaGrow Grasshopper plugin. Each legacy Grasshopper Python component remains the behavioural reference until the corresponding compiled component is tested in Rhino.
+Updated 2026-09-10. Use the [current status](current-status.md) for release/installation status and the [25-script audit](component-io-audit-2026-09-09.md) for the complete input/output inventory and known differences.
 
-For the detailed input/output comparison of each legacy script and compiled component, see [legacy-compiled-comparison.md](legacy-compiled-comparison.md).
+## Identify components before reconnecting
 
-| # | Legacy script | Compiled component | Required inputs | Required outputs / effects |
-| ---: | --- | --- | --- | --- |
-| 1 | `01 Working Directory` | Simulation Paths | Root folder; six output-folder toggles | Root and selected PIT/annual/spectral folders; creates missing folders |
-| 2 | `02 Radiance Version` | Radiance Status | Run | `rcontrib` version/status |
-| 3 | Opaque Materials – façade | Facade Material | Run; RadMaterials folder | Selected Radiance modifier |
-| 4 | Opaque Materials – frame | Frame Material | Run; RadMaterials folder | Selected Radiance modifier |
-| 5 | Opaque Materials – ground | Ground Material | Run; RadMaterials folder | Selected Radiance modifier |
-| 6 | Opaque Materials – concrete | Concrete Material | Run; RadMaterials folder | Selected Radiance modifier |
-| 7 | Glazing Materials | Glazing Material | Run; RadGlazing folder | Selected glazing modifier |
-| 8 | Spectral Data Load | Load Spectral Data | Open UI; wavelength step | Conversion factor; calculated spectral CSV |
-| 9 | Spectral Data Selection | Select Spectral Factor | Run; wavelength step | Standard/custom conversion factor |
-| 10 | Spectral Data Selection2 | Select Spectral Factor (legacy) | Run; wavelength step | Same contract as #9 |
-| 11 | Select Grow Light | Select IES Luminaire | Run; RadIES folder | IES file path and luminaire name |
-| 12 | IES to Rad | Convert IES to Radiance | IES path/name, RGB, multiplier, project folder, run | `.rad`/`.dat` paths, log; runs `ies2rad` |
-| 13 | Lighting Geometry | Place Luminaires | Points, rotations, `.rad` paths | `xform` lines |
-| 14 | Compile Luminaries | Compile Luminaires | xform lines, project folder, write | `luminaries.rad` path |
-| 15 | Annual Simulation | Annual Simulation | ModelToRad project folder, EPW, sky subdivision, detail, run, optional points/bin folder | Four/single Radiance batch jobs, progress logs, and result folder; preserves sensor order across parts |
-| 16 | Load Annual Result | Load Annual Result | Result folder, build | Merged `.ill`, Python-compatible `.f32` and lowercase-key `.meta.json` |
-| 17 | selected_hour_index | Select Date and Hour | Boolean run | Hour index, non-leap-year calendar mapping |
-| 18 | Illuminance Pointintime | Illuminance Point in Time | Cache path, `hour`/`sensor` mode, index, run | Hourly sensor series or one hour across all sensors |
-| 19 | Illuminance sensor | Illuminance Sensor | Same as #18 | Same data contract and bounds validation as #18 |
-| 20 | Annual Plot | Annual Plot | 8,760 values, ranges, grid/display options, run | Interactive hourly annual heatmap and PNG export |
-| 21 | Sensor Marker | Sensor Marker | Point, grid size, up vector | Upper hemisphere marker Brep |
-| 22 | Select PIT to PPFD | Select PIT to PPFD | Boolean run | Hour index, non-leap-year calendar mapping |
-| 23 | Hourly PAR | Hourly PAR | Cache path, hour index, numeric/preset conversion factor | Per-sensor PPFD at selected hour and status |
-| 24 | PAR Each Sensor | PAR Each Sensor | Cache path, sensor index, numeric/preset conversion factor, optional point/marker | 8,760 PPFD values, selected point, optional marker, and status |
-| 25 | Annual Plot PPFD for sensor | Annual Plot PPFD for Sensor | 8,760 PPFD values, ranges, grid/display options, run | Interactive annual PPFD heatmap and PNG export |
+Same display names do not imply the same GUID or ports. The visible Setup trio is:
 
-## Migration rules
+| Visible component | Implementation / GUID | Purpose |
+| --- | --- | --- |
+| Simulation Paths | SimulationPathsSetupComponent / `71ce89f2-1439-4730-915f-07436692926c` | Resolves locations; outputs typed Paths and text Folder/Library. |
+| Working Directory | ProjectWorkspaceComponent / `d236c57b-eab1-4329-8e4e-beb2285ba04d` | Opens/initializes a named analysis; outputs Project/Analysis contexts and folders. |
+| Radiance Status | RadianceSetupComponent / `9cd39fc4-7c35-4aee-a247-1c8b980c4b17` | Checks a workflow-specific environment; outputs Radiance, Ready and diagnostics. |
 
-- Preserve units, data ordering, and file naming before changing a component UI.
-- Keep each legacy component identity, even when code is shared internally, so existing definitions can be migrated predictably.
-- Use portable paths returned by **Simulation Paths**. Do not reintroduce fixed `C:\` library locations.
-- The annual cache format is little-endian `float32`, row-major **hours × sensors**, with `sensors`, `hours`, and `ncomp` in the sibling metadata JSON.
-- Annual execution must support both a single `annualRfinal_part0.ill` result and the four-part result set.
-- For split annual jobs, point blocks must be contiguous and merge in part order. Round-robin splitting breaks the relationship between cache columns and sensor-grid positions.
-- Radiance result parsing must skip all nonnumeric header lines, not only lines above the first blank line.
+Python Working Directory maps historically to hidden WorkingDirectoryComponent (`3bc3011e-2b2f-4c14-9344-dcb3554f3722`), not visible Simulation Paths. Python has seven folder toggles; that compiled legacy helper has six and lacks spectral point-in-time render. Python Radiance Version maps to hidden RadianceVersionComponent (`272aa83d-9898-460d-8cbd-7f49374153ba`), not visible Radiance Status.
 
-## Additional compiled support components
+See the audit's hidden identity table for all six hidden Setup components. Compiled GUID preservation does not automatically replace GhPython components. Exact old wire order/type hints/tree access still require a representative saved definition.
 
-| Component | Purpose |
-| --- | --- |
-| Annual Simulation Progress | Reads the latest stage from `annual_progress_partN.log` files and counts final annual-result files. Use a Grasshopper Timer for live updates. |
+## Annual daylight migration
+
+1. Simulation Paths **Paths** → Working Directory **Paths**. Choose Workflow=0 and initialize/open the analysis.
+2. Working Directory **Analysis** → Radiance Status **Analysis** and Annual Simulation **Analysis**.
+3. Radiance Status **Radiance** → Annual Simulation **Radiance**. Bin text alone does not carry readiness or a custom calculation library.
+4. Export the model through Honeybee ModelToRad. Its source root → Annual Simulation **Project**; EPW file → **EPW**.
+5. Source root must contain `model/scene/envelope.rad`, `envelope.mat`, `envelope.blk` and a sensor grid in `model/grid`, unless Pts supplies points. Workspace Inputs/Runs folders alone are not an exported model.
+6. Annual Simulation **Folder** → Progress **Folder** and Load Annual Result **Folder**. This is one isolated run, not the source root or Runs container.
+7. After valid completion, Build the cache. F32 → a cache-native reader. Use Hourly PAR for all sensors at one hour; PAR Each Sensor for all hours at one sensor. Illuminance readers require explicit Mode/index and Run=True.
+8. A sensor's annual PPFD list → Annual Plot PPFD for Sensor / Annual DLI; Daily DLI → DLI Target. The supported DLI/plot case is 8,760 hourly values.
+
+Keep the original sensor order. Optional Pts creates upward normals; exported oriented grids should use the .pts source. List-conversion helpers Hourly PPFD / PPFD Each Sensor accept numeric lists, not cache paths.
+
+Numeric quality levels now match named presets, but the independent Python custom-parameter port has not been restored. Custom spectral CSV factors still have numerical drift (IO03). Calendar/leap-year and trigger behavior remain open. Run=True launches a new run on every solve; a false→true transition does not launch the previously prepared folder.
+
+## Result compatibility
+
+The binary format remains little-endian float32, row-major hours × sensors, with sibling metadata keys `sensors`, `hours`, `ncomp`. New caches also carry run identity, source signature and cache hash.
+
+New progress/cache builders require a schema-2 manifest, successful command states and final scalar ASCII matrices with matching dimensions, finite values and nonnegative illuminance. Headers may contain copied blank provenance before FORMAT; the data separator follows FORMAT. Malformed numeric data must never be skipped to make a cache build succeed.
+
+Flat legacy result folders and schema-1 runs require regeneration under the supported pipeline. Do not fabricate manifests or success states. Existing valid dimension-only caches can be read directly by legacy-compatible readers; they do not gain provenance validation. Selected negative/nonfinite cache values now fail lux/PPFD reading.
+
+Load Annual Result writes F32 and metadata; it no longer exports a merged .ill. It does not delete intermediate data. See [run isolation](annual-run-isolation.md) and the [live-result audit](annual-result-audit-2026-09-10.md).
+
+## Materials and electric preparation
+
+Setup Library is the FlahaGrow asset root; connect it to Materials/Glazing/IES selector folders. Radiance Status Lib is a different calculation library. Material selectors output modifier names, not Honeybee objects or complete definitions; the external model/export workflow must resolve those definitions.
+
+For electric preparation, use Workflow=1 and its checked Radiance environment. IES selector → IES to Radiance → Lighting Geometry → Compile Luminaires. Both conversion and compilation receive the same text Project root and use `Project/Luminaire_files`. Python used `parent(folder)/Luminaire_files`: reconnect the project root explicitly.
+
+The chain ends at luminaries.rad; it does not automatically simulate electric illuminance, combine it with daylight, or produce a power schedule. IES rerun file ownership/rewrite issues (IO07) and selector parsing/persistence issues remain open.
+
+## Migration acceptance
+
+Preserve published compiled GUIDs and port indices; append compatible optional ports. Resolve known Python defects rather than treating every legacy behavior as correct. Documentation mapping is reconciled here, but C06's saved-definition verification remains pending. No full numerical workflow certification is implied.
