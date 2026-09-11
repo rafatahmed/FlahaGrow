@@ -181,7 +181,13 @@ public class TestData : DispatchProxy
             foreach (var item in (System.Collections.IEnumerable)value) list.Add(item);
             return true;
         }
-        if (method.Name is "SetData" or "SetDataList") { Outputs[(int)args![0]!] = args[1]; return method.ReturnType == typeof(bool) ? true : null; }
+        if (method.Name == "GetDataTree")
+        {
+            if (!Inputs.TryGetValue((int)args![0]!, out var value)) return false;
+            args[1] = value;
+            return true;
+        }
+        if (method.Name is "SetData" or "SetDataList" or "SetDataTree") { Outputs[(int)args![0]!] = args[1]; return method.ReturnType == typeof(bool) ? true : null; }
         throw new NotSupportedException(method.Name);
     }
 }

@@ -204,6 +204,7 @@ internal static class AnnualIntegrationChecks
         var path = (string)built.Outputs[0]!;
         var valid = Solve(new IlluminancePointInTimeComponent(), new() { [0] = path, [1] = " hour ", [2] = 1, [3] = true });
         if (!((string)valid.Outputs[1]!).Contains("hour 1")) throw new Exception("Whitespace mode did not select hour.");
+        CheckLegacyDliReaders(path);
         using (var writer = new BinaryWriter(File.Create(path)))
             foreach (var value in new[] { 1f, 2f, -28075f, 4f }) writer.Write(value);
         foreach (var component in new GH_Component[] { new IlluminancePointInTimeComponent(), new IlluminanceSensorComponent() })
@@ -215,6 +216,26 @@ internal static class AnnualIntegrationChecks
             || Solve(new ParEachSensorComponent(), new() { [0] = path, [1] = 0 }).Outputs.ContainsKey(0))
             throw new Exception("Legacy negative cache was converted to PPFD.");
         Console.WriteLine("PASS cache reader provenance: whitespace mode, manifest/signature rejection of modified cache, no invalid lux/PPFD emission.");
+    }
+
+    private static void CheckLegacyDliReaders(string path)
+    {
+        var hourly = Solve(new DliHourlyComponent(), new() { [0] = path, [1] = 25 });
+        var totals = ((IEnumerable<double>)hourly.Outputs[0]!).ToArray();
+        if (totals.Length != 2 || totals.Any(value => value <= 0)) throw new Exception("DLI Hourly did not return one positive total per sensor.");
+        var tree = (Grasshopper.Kernel.Data.GH_Structure<Grasshopper.Kernel.Types.GH_Number>)hourly.Outputs[1]!;
+        if (tree.PathCount != 2 || tree.Branches.Any(branch => branch.Count != 24)) throw new Exception("DLI Hourly did not return a 24-value branch for every sensor.");
+
+        // DLI Each Sensor deliberately receives a GH tree, exactly like the legacy
+        // Python component. DispatchProxy cannot implement Grasshopper's generic
+        // GetDataTree<T> method, so its native tree solve belongs to Rhino canvas
+        // acceptance rather than this CLR-only harness. Its ports are covered by
+        // the component ledger/archive check above.
+        var selectedSensor = new DliEachSensorComponent();
+        if (selectedSensor.Params.Input.Count != 7 || selectedSensor.Params.Output.Count != 3
+            || selectedSensor.Params.Input[3].Access != GH_ParamAccess.tree)
+            throw new Exception("DLI Each Sensor does not retain its seven-input native-tree interface.");
+        Console.WriteLine("PASS legacy DLI ports: 24 hourly entries per sensor; DLI Each Sensor retains its 7/3 native-tree interface.");
     }
 
     private static void Result(string folder, int index, string values)

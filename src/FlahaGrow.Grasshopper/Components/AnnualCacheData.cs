@@ -38,6 +38,28 @@ internal static class AnnualCacheData
         RequireIlluminance(values);
         return values;
     }
+    /// <summary>
+    /// Reads the selected legacy 24-hour day for every sensor in one contiguous
+    /// operation. Provenance and cache integrity are checked once, rather than
+    /// once per sensor, which is essential for interactive Grasshopper solves.
+    /// </summary>
+    internal static (int Sensors, int Hours, int StartHour, List<double> Values) Day24(string cachePath, int hourIndex)
+    {
+        var (sensors, hours) = Dimensions(cachePath);
+        var requestedHour = Math.Max(0, hourIndex);
+        var daysAvailable = hours >= 24 ? Math.Max(1, hours / 24) : 1;
+        var dayIndex = Math.Min(requestedHour / 24, daysAvailable - 1);
+        var startHour = dayIndex * 24;
+        var sampleHours = Math.Min(24, hours - startHour);
+        using var stream = File.OpenRead(cachePath);
+        stream.Position = checked((long)startHour * sensors * sizeof(float));
+        var bytes = new byte[checked(sampleHours * sensors * sizeof(float))];
+        stream.ReadExactly(bytes);
+        var values = Enumerable.Range(0, checked(sampleHours * sensors))
+            .Select(index => (double)BitConverter.ToSingle(bytes, index * sizeof(float))).ToList();
+        RequireIlluminance(values);
+        return (sensors, hours, startHour, values);
+    }
     internal static void RequireIlluminance(IEnumerable<double> values)
     {
         if (values.Any(value => !double.IsFinite(value) || value < 0))

@@ -25,7 +25,7 @@ See the audit's hidden identity table for all six hidden Setup components. Compi
 5. Source root must contain `model/scene/envelope.rad`, `envelope.mat`, `envelope.blk` and a sensor grid in `model/grid`, unless Pts supplies points. Workspace Inputs/Runs folders alone are not an exported model.
 6. Annual Simulation **Folder** → Progress **Folder** and Load Annual Result **Folder**. This is one isolated run, not the source root or Runs container.
 7. After valid completion, Build the cache. F32 → a cache-native reader. Use Hourly PAR for all sensors at one hour; PAR Each Sensor for all hours at one sensor. Illuminance readers require explicit Mode/index and Run=True.
-8. A sensor's annual PPFD list → Annual Plot PPFD for Sensor / Annual DLI; Daily DLI → DLI Target. The supported DLI/plot case is 8,760 hourly values.
+8. A sensor's annual PPFD list → Annual Plot PPFD for Sensor / Annual DLI; Daily DLI → DLI Target or either Annual Plot (which accepts 365 daily values). Annual plots infer 8,760 hourly, 365 daily, or 12 monthly resolution from the list length.
 
 Keep the original sensor order. Optional Pts creates upward normals; exported oriented grids should use the .pts source. List-conversion helpers Hourly PPFD / PPFD Each Sensor accept numeric lists, not cache paths.
 

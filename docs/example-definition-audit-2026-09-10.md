@@ -22,7 +22,7 @@ The current source and [component I/O audit](component-io-audit-2026-09-09.md) a
 | Cache | The same **Folder** → Load Annual Result **Folder**. Build only after Progress validates all parts. | Required; cache builder requires the schema-2 run manifest. |
 | Point-in-time lux | Cache **F32** → Illuminance Point in Time **F32**; set Mode=`hour`, supply a zero-based hour index, and Run=True. | Returns one value per sensor. |
 | Sensor annual lux | Cache **F32** → Illuminance Sensor **F32**; set Mode=`sensor`, supply a zero-based sensor index, and Run=True. | Returns one value per hour. |
-| PPFD/DLI | Feed extracted numerical lux lists to list-based PPFD components, or use the cache-native PAR readers. DLI/annual plots expect 8,760 hourly values. | Supported with known spectral and timestep limitations. |
+| PPFD/DLI | Feed extracted numerical lux lists to list-based PPFD components, or use the cache-native PAR readers. Annual plots accept 8,760 hourly, 365 daily, or 12 monthly values; `DLI Each Sensor` emits the daily form. | Supported with known spectral and timestep limitations. |
 | Electric preparation | Use workflow 1 and a ready electric Radiance environment. IES → IES to Radiance → Lighting Geometry → Compile Luminaires uses one project-local `Luminaire_files` folder. Connect the resulting `.rad`, schedule, and sensors to Electric Annual Simulation for an electric annual matrix. | Daylight-plus-electric combination and real Rhino export acceptance remain open. |
 
 ## Migration risks found

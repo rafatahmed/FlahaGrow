@@ -69,9 +69,12 @@ public static class ComponentRevisionCatalog
     private static readonly ComponentRevision WorkingDirectoryRevision = new("1.0.2", new DateTimeOffset(2026, 9, 11, 12, 50, 0, TimeSpan.FromHours(3)), "Missing workspace manifests provide recovery guidance and no longer block explicit initialization of a legacy folder.");
     private static readonly ComponentRevision AnnualSimulationRevision = new("1.6.0", new DateTimeOffset(2026, 9, 11, 19, 20, 0, TimeSpan.FromHours(3)), "Uses Ladybug-compatible strict EPW-to-WEA conversion, a verified 146-column ground-plus-sky receiver basis, storage safeguards, and verified persisted-process cancellation.");
     private static readonly ComponentRevision AnnualSimulationProgressRevision = new("1.1.0", new DateTimeOffset(2026, 9, 11, 16, 10, 0, TimeSpan.FromHours(3)), "Reports each part's latest 1–8 batch stage and stage coverage instead of only its lifecycle state.");
+    private static readonly ComponentRevision AnnualPlotRevision = new("1.0.1", new DateTimeOffset(2026, 9, 11, 21, 47, 0, TimeSpan.FromHours(3)), "Infers and displays 8,760 hourly, 365 daily, or 12 monthly annual series without changing the existing ports.");
     private static readonly ComponentRevision DliRevision = new("1.1.0", new DateTimeOffset(2026, 9, 11, 17, 40, 0, TimeSpan.FromHours(3)), "Validates complete 365-day PPFD series against its timestep instead of assuming hourly samples.");
+    private static readonly ComponentRevision DliHourlyRevision = new("1.0.1", new DateTimeOffset(2026, 9, 11, 21, 15, 0, TimeSpan.FromHours(3)), "Reads and validates the selected 24-hour cache block once, eliminating repeated whole-cache validation for every sensor while preserving the legacy branches and values.");
+    private static readonly ComponentRevision DliEachSensorRevision = new("1.0.1", new DateTimeOffset(2026, 9, 11, 20, 58, 0, TimeSpan.FromHours(3)), "Fixes the native Grasshopper tree read to request IGH_Goo, the exact type supplied by the Generic sensor-points parameter.");
     private static readonly ComponentRevision IesConversionRevision = new("1.1.0", new DateTimeOffset(2026, 9, 11, 17, 40, 0, TimeSpan.FromHours(3)), "Requires ies2rad outputs that match the requested luminaire name; never substitutes the newest unrelated file.");
-    private static readonly ComponentRevision SpectralRevision = new("1.0.3", new DateTimeOffset(2026, 9, 11, 18, 5, 0, TimeSpan.FromHours(3)), "Persists selected spectral factors, custom CSV path/hash, and loaded spectral results; warns when the saved CSV changes.");
+    private static readonly ComponentRevision SpectralRevision = new("1.1.0", new DateTimeOffset(2026, 9, 11, 21, 45, 0, TimeSpan.FromHours(3)), "Adds explicit custom-CSV path inputs/outputs and edge-triggered file pickers; persists path/hash and recalculates when the selected CSV or interval changes.");
     private static readonly ComponentRevision SelectorRevision = new("1.0.2", new DateTimeOffset(2026, 9, 11, 17, 45, 0, TimeSpan.FromHours(3)), "Persists the selected library item and re-emits it without reopening its dialog.");
     private static readonly ComponentRevision AnnualReaderRevision = new("1.1.0", new DateTimeOffset(2026, 9, 11, 18, 5, 0, TimeSpan.FromHours(3)), "Requires manifest, validated-result signature, and cache hash provenance before emitting annual illuminance or PPFD.");
     private static readonly ComponentRevision ElectricAnnualRevision = new("1.0.0", new DateTimeOffset(2026, 9, 11, 19, 45, 0, TimeSpan.FromHours(3)), "Runs one full-output electric Radiance calculation in the background, snapshots a validated 8,760-hour dimming schedule, and writes a provenance-owned annual matrix.");
@@ -79,8 +82,10 @@ public static class ComponentRevisionCatalog
     private static readonly IReadOnlyDictionary<Guid, ComponentRevision> Entries = new Dictionary<Guid, ComponentRevision>
     {
         [new("f32f1cbd-04b5-42ed-9fdf-c194851011b2")] = DliRevision,
-        [new("5747b67c-4aec-4117-83a2-5e30a7308920")] = Baseline,
-        [new("ce9c1e5d-c2ce-4c29-9c7d-277d19d25e42")] = Baseline,
+        [new("d4f97934-9fd5-4d9c-a6e0-b550d0c9cedf")] = DliHourlyRevision,
+        [new("a77d7b17-274a-444b-af3d-063144dcb3fa")] = DliEachSensorRevision,
+        [new("5747b67c-4aec-4117-83a2-5e30a7308920")] = AnnualPlotRevision,
+        [new("ce9c1e5d-c2ce-4c29-9c7d-277d19d25e42")] = AnnualPlotRevision,
         [new("5f1d58a4-064f-4fc9-b79b-640a380a3e43")] = Baseline,
         [new("0e5f7114-fbb9-4a77-a3f4-40ccd0c0c258")] = Baseline,
         [new("ca2ce6ef-a0c8-4d98-87a3-2adf2a91ca45")] = AnnualSimulationRevision,

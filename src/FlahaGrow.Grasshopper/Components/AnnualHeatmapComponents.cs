@@ -5,7 +5,7 @@ using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components;
 
-/// <summary>Shared legacy-style 365 by 24 classified heatmap viewer and PNG exporter.</summary>
+/// <summary>Classified annual viewer and PNG exporter for hourly, daily, or monthly series.</summary>
 public abstract class AnnualHeatmapComponent : FlahaGrowComponent
 {
     private readonly string defaultTitle;
@@ -15,7 +15,7 @@ public abstract class AnnualHeatmapComponent : FlahaGrowComponent
     public override Guid ComponentGuid => Id;
     protected override void RegisterInputParams(GH_InputParamManager p)
     {
-        p.AddNumberParameter("Hourly results", "Data", "Exactly 8,760 hourly values.", GH_ParamAccess.list);
+        p.AddNumberParameter("Annual results", "Data", "Annual values: 8,760 hourly, 365 daily, or 12 monthly values.", GH_ParamAccess.list);
         p.AddNumberParameter("Range 1", "R1", "First inclusive threshold.", GH_ParamAccess.item, 0);
         p.AddNumberParameter("Range 2", "R2", "Second inclusive threshold.", GH_ParamAccess.item, 10);
         p.AddNumberParameter("Range 3", "R3", "Third inclusive threshold.", GH_ParamAccess.item, 20);
@@ -42,11 +42,11 @@ public abstract class AnnualHeatmapComponent : FlahaGrowComponent
         if (!run) { da.SetData(0, "Set Run True to open the annual heatmap."); return; }
         try
         {
-            if (data.Count != 8760) throw new InvalidDataException("Hourly results must contain exactly 8,760 values.");
+            if (data.Count is not (8760 or 365 or 12)) throw new InvalidDataException($"Annual results contain {data.Count} values. Supply exactly 8,760 hourly, 365 daily, or 12 monthly values.");
             if (ranges.Any(double.IsNaN) || ranges.Any(double.IsInfinity) || ranges[0] > ranges[1] || ranges[1] > ranges[2] || ranges[2] > ranges[3]) throw new InvalidDataException("Ranges must be ascending (R1 ≤ R2 ≤ R3 ≤ R4).");
             gridMode = Math.Clamp(gridMode, 0, 3); title = string.IsNullOrWhiteSpace(title) ? defaultTitle : title.Trim();
             var form = new AnnualHeatmapForm(data, ranges, gridMode, gridColor, names, title); OpenForms.Add(form); form.FormClosed += (_, _) => OpenForms.Remove(form); form.Show();
-            da.SetData(0, $"Opened {title}: 8,760 hourly values.");
+            da.SetData(0, $"Opened {title}: {AnnualHeatmapForm.ResolutionName(data.Count)} annual values.");
         }
         catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
     }
@@ -54,12 +54,12 @@ public abstract class AnnualHeatmapComponent : FlahaGrowComponent
 
 public sealed class AnnualPlotComponent : AnnualHeatmapComponent
 {
-    public AnnualPlotComponent() : base("Annual Plot", "Annual Plot", "Displays 8,760 annual illuminance values as a classified 365 × 24 heatmap and exports PNG.", "Annual Illuminance", new Guid("5747b67c-4aec-4117-83a2-5e30a7308920")) { }
+    public AnnualPlotComponent() : base("Annual Plot", "Annual Plot", "Displays 8,760 hourly, 365 daily, or 12 monthly annual illuminance values and exports PNG.", "Annual Illuminance", new Guid("5747b67c-4aec-4117-83a2-5e30a7308920")) { }
 }
 
 public sealed class AnnualPpfdPlotComponent : AnnualHeatmapComponent
 {
-    public AnnualPpfdPlotComponent() : base("Annual Plot PPFD for Sensor", "PPFD Plot", "Displays 8,760 annual PPFD values as a classified 365 × 24 heatmap and exports PNG.", "Annual PPFD", new Guid("ce9c1e5d-c2ce-4c29-9c7d-277d19d25e42")) { }
+    public AnnualPpfdPlotComponent() : base("Annual Plot PPFD for Sensor", "PPFD Plot", "Displays 8,760 hourly, 365 daily, or 12 monthly annual PPFD/DLI values and exports PNG.", "Annual PPFD", new Guid("ce9c1e5d-c2ce-4c29-9c7d-277d19d25e42")) { }
 }
 
 internal sealed class AnnualHeatmapForm : Form
@@ -68,43 +68,59 @@ internal sealed class AnnualHeatmapForm : Form
     private readonly int mode;
     private readonly Color gridColor;
     private readonly string[] names;
-    private const int CellWidth = 4, CellHeight = 20, MarginLeft = 30, MarginTop = 40, TitleHeight = 25, MarginRight = 150, MarginBottom = 180;
+    private readonly int columns, rows, cellWidth, cellHeight;
+    private readonly string resolution;
+    private const int MarginLeft = 30, MarginTop = 40, TitleHeight = 25, MarginRight = 150, MarginBottom = 180;
     private readonly Color[] colors;
     private readonly Label hover = new() { AutoSize = true };
     internal AnnualHeatmapForm(IReadOnlyList<double> data, IReadOnlyList<double> ranges, int mode, Color gridColor, string[] names, string title)
     {
         this.data = data; this.ranges = ranges; this.mode = mode; this.gridColor = mode == 3 ? Color.FromArgb(99, 99, 99) : gridColor; this.names = names;
+        (resolution, columns, rows, cellWidth, cellHeight) = data.Count switch
+        {
+            8760 => ("hourly", 365, 24, 4, 20),
+            365 => ("daily", 365, 1, 4, 40),
+            12 => ("monthly", 12, 1, 80, 40),
+            _ => throw new ArgumentOutOfRangeException(nameof(data), "Unsupported annual result count.")
+        };
         colors = new[] { mode == 3 ? Color.FromArgb(128, 128, 128) : Color.White, Color.FromArgb(249, 235, 171), Color.FromArgb(240, 190, 57), Color.FromArgb(228, 104, 40), Color.FromArgb(215, 14, 23) };
         Text = title; StartPosition = FormStartPosition.CenterScreen; FormBorderStyle = FormBorderStyle.Sizable; DoubleBuffered = true; BackColor = mode == 3 ? Color.Gray : Color.White;
-        ClientSize = new Size(MarginLeft + 365 * CellWidth + MarginRight, MarginTop + TitleHeight + 24 * CellHeight + MarginBottom);
+        ClientSize = new Size(MarginLeft + columns * cellWidth + MarginRight, MarginTop + TitleHeight + rows * cellHeight + MarginBottom);
         Paint += (_, e) => DrawHeatmap(e.Graphics); MouseMove += OnMouseMove;
         var export = new Button { Text = "Export PNG", Height = 30, Dock = DockStyle.Bottom }; export.Click += (_, _) => ExportPng(); Controls.Add(export);
-        hover.Location = new Point(120, MarginTop + TitleHeight + 24 * CellHeight + 75); Controls.Add(hover);
+        hover.Location = new Point(120, MarginTop + TitleHeight + rows * cellHeight + 75); Controls.Add(hover);
     }
+    internal static string ResolutionName(int count) => count switch { 8760 => "8,760 hourly", 365 => "365 daily", 12 => "12 monthly", _ => "unsupported" };
     private int Classify(double value) => value <= ranges[0] ? 0 : value <= ranges[1] ? 1 : value <= ranges[2] ? 2 : value <= ranges[3] ? 3 : 4;
     private void DrawHeatmap(Graphics g)
     {
         g.SmoothingMode = SmoothingMode.Default; g.PixelOffsetMode = PixelOffsetMode.HighSpeed;
         var inset = mode == 1 ? .5f : 0f; var grid = mode is 2 or 3;
         using var pen = new Pen(gridColor);
-        for (var hour = 0; hour < 24; hour++) for (var day = 0; day < 365; day++)
+        for (var row = 0; row < rows; row++) for (var column = 0; column < columns; column++)
         {
-            var x = MarginLeft + day * CellWidth; var y = MarginTop + TitleHeight + hour * CellHeight;
-            using var brush = new SolidBrush(colors[Classify(data[day * 24 + hour])]);
-            g.FillRectangle(brush, x + inset, y + inset, CellWidth - 2 * inset, CellHeight - 2 * inset);
-            if (grid) g.DrawRectangle(pen, x, y, CellWidth, CellHeight);
+            var x = MarginLeft + column * cellWidth; var y = MarginTop + TitleHeight + row * cellHeight;
+            using var brush = new SolidBrush(colors[Classify(data[column * rows + row])]);
+            g.FillRectangle(brush, x + inset, y + inset, cellWidth - 2 * inset, cellHeight - 2 * inset);
+            if (grid) g.DrawRectangle(pen, x, y, cellWidth, cellHeight);
         }
         var monthStarts = new[] { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 }; var monthNames = new[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-        for (var i = 0; i < monthStarts.Length; i++) { var x = MarginLeft + monthStarts[i] * CellWidth; g.DrawLine(Pens.Gray, x, MarginTop + TitleHeight, x, MarginTop + TitleHeight + 24 * CellHeight); g.DrawString(monthNames[i], Font, Brushes.Black, x + 4, MarginTop + TitleHeight + 24 * CellHeight + 5); }
-        foreach (var hour in new[] { 0, 6, 12, 18, 24 }) g.DrawString($"{hour:00}:00", Font, Brushes.Black, MarginLeft + 365 * CellWidth + 5, MarginTop + TitleHeight + hour * CellHeight - 8);
-        g.DrawString(Text, new Font(Font.FontFamily, 10), Brushes.Black, MarginLeft, 10); g.DrawString("Day of Year", Font, Brushes.Black, MarginLeft + 680, MarginTop + TitleHeight + 24 * CellHeight + 55);
+        if (resolution is "hourly" or "daily")
+            for (var i = 0; i < monthStarts.Length; i++) { var x = MarginLeft + monthStarts[i] * cellWidth; g.DrawLine(Pens.Gray, x, MarginTop + TitleHeight, x, MarginTop + TitleHeight + rows * cellHeight); g.DrawString(monthNames[i], Font, Brushes.Black, x + 4, MarginTop + TitleHeight + rows * cellHeight + 5); }
+        else
+            for (var i = 0; i < monthNames.Length; i++) g.DrawString(monthNames[i], Font, Brushes.Black, MarginLeft + i * cellWidth + 5, MarginTop + TitleHeight + rows * cellHeight + 5);
+        if (resolution == "hourly") foreach (var hour in new[] { 0, 6, 12, 18, 24 }) g.DrawString($"{hour:00}:00", Font, Brushes.Black, MarginLeft + columns * cellWidth + 5, MarginTop + TitleHeight + hour * cellHeight - 8);
+        else g.DrawString(resolution == "daily" ? "Daily" : "Monthly", Font, Brushes.Black, MarginLeft + columns * cellWidth + 5, MarginTop + TitleHeight + cellHeight / 2 - 8);
+        g.DrawString(Text, new Font(Font.FontFamily, 10), Brushes.Black, MarginLeft, 10); g.DrawString(resolution == "monthly" ? "Month" : "Day of Year", Font, Brushes.Black, MarginLeft + Math.Max(0, columns * cellWidth - 130), MarginTop + TitleHeight + rows * cellHeight + 55);
         var counts = new int[5]; foreach (var value in data) counts[Classify(value)]++; var xLegend = MarginLeft;
-        for (var i = 0; i < 5; i++) { using var brush = new SolidBrush(colors[i]); var label = $"{Math.Round(counts[i] * 100d / data.Count)}% {names[i]}"; g.FillRectangle(brush, xLegend, MarginTop + TitleHeight + 24 * CellHeight + 85, 20, 15); g.DrawString(label, Font, Brushes.Black, xLegend + 25, MarginTop + TitleHeight + 24 * CellHeight + 85); xLegend += 25 + (int)g.MeasureString(label, Font).Width + 35; }
+        for (var i = 0; i < 5; i++) { using var brush = new SolidBrush(colors[i]); var label = $"{Math.Round(counts[i] * 100d / data.Count)}% {names[i]}"; g.FillRectangle(brush, xLegend, MarginTop + TitleHeight + rows * cellHeight + 85, 20, 15); g.DrawString(label, Font, Brushes.Black, xLegend + 25, MarginTop + TitleHeight + rows * cellHeight + 85); xLegend += 25 + (int)g.MeasureString(label, Font).Width + 35; }
     }
     private void OnMouseMove(object? sender, MouseEventArgs e)
     {
-        var day = (e.X - MarginLeft) / CellWidth; var hour = (e.Y - MarginTop - TitleHeight) / CellHeight;
-        if (day is >= 0 and < 365 && hour is >= 0 and < 24) hover.Text = $"Day {day + 1}, Hour {hour}: {data[day * 24 + hour]:0.##}";
+        var column = (e.X - MarginLeft) / cellWidth; var row = (e.Y - MarginTop - TitleHeight) / cellHeight;
+        if (column is < 0 or >= 365 || row is < 0 or >= 24 || column >= columns || row >= rows) return;
+        var value = data[column * rows + row];
+        hover.Text = resolution switch { "hourly" => $"Day {column + 1}, Hour {row}: {value:0.##}", "daily" => $"Day {column + 1}: {value:0.##}", _ => $"Month {column + 1}: {value:0.##}" };
     }
     private void ExportPng()
     {

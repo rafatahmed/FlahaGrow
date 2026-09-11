@@ -47,7 +47,7 @@ If Progress reports `Running`, wait; the loader is correctly protecting an incom
 - **Illuminance Point in Time:** F32 + Mode=`hour` + zero-based hour index + Run=True returns every sensor for that hour.
 - **Illuminance Sensor:** F32 + Mode=`sensor` + zero-based sensor index + Run=True returns the selected sensor through the year.
 - **Hourly PAR** and **PAR Each Sensor** read an F32 path. **Hourly PPFD** and **PPFD Each Sensor** accept already-extracted numeric lux lists.
-- DLI and annual plots use the supported non-leap-year hourly case: 8,760 values.
+- **Annual Plot** and **Annual Plot PPFD for Sensor** infer their resolution from the supplied annual list: 8,760 hourly values (365 × 24), 365 daily values (one per day), or 12 monthly values (one per month). `DLI Each Sensor` emits the 365-daily form; `PAR Each Sensor` emits the 8,760-hourly form.
 
 ## Limits
 
