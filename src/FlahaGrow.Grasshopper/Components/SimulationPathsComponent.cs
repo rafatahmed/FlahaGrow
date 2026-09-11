@@ -6,7 +6,7 @@ namespace FlahaGrow.Grasshopper.Components;
 /// <summary>
 /// Establishes a portable project workspace and finds the bundled library.
 /// </summary>
-public sealed class SimulationPathsComponent : GH_Component
+public sealed class SimulationPathsComponent : FlahaGrowComponent
 {
     public SimulationPathsComponent()
         : base(

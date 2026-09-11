@@ -39,7 +39,7 @@ Do not copy `Grasshopper.dll`, `GH_IO.dll`, or `RhinoCommon.dll` into the Librar
 
 ## Adding components
 
-Create one public class per component under `Components/`, inherit from `GH_Component`, assign a permanent `ComponentGuid`, and define explicit units in parameter descriptions. Never change a published component GUID. For breaking input/output changes, preserve the old component as hidden/legacy and publish a new GUID.
+Create one public class per component under `Components/`, inherit from `FlahaGrowComponent`, assign a permanent `ComponentGuid`, and define explicit units in parameter descriptions. Register it in `ComponentRevisionCatalog`; the smoke test requires a revision/date entry for every concrete component. Never change a published component GUID. For breaking input/output changes, preserve the old component as hidden/legacy and publish a new GUID. See the [component revision ledger](component-revisions.md) for version-bump, release, and canvas-replacement rules.
 
 ## Packaging
 

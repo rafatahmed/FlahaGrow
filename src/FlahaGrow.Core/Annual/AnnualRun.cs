@@ -9,7 +9,11 @@ public sealed record AnnualRunPart(int Index, int SensorStart, int Sensors)
     public string ResultFile => $"annualRfinal_part{Index}.ill";
     public string LogFile => $"annual_progress_part{Index}.log";
     public string StateFile => $"annual_state_part{Index}.txt";
+    public string ProcessFile => $"annual_process_part{Index}.txt";
 }
+
+/// <summary>Identity of the cmd.exe process that owns one launched batch part.</summary>
+public sealed record AnnualProcessIdentity(int ProcessId, long StartUtcTicks);
 
 public sealed record AnnualRunManifest(int SchemaVersion, Guid RunId, Guid? ProjectId, Guid? AnalysisId,
     string SourceRoot, int Sky, int Sensors, string SensorHash, Dictionary<string, string> Inputs,
@@ -84,6 +88,28 @@ public static class AnnualRun
     {
         using var stream = File.OpenRead(path);
         return Convert.ToHexString(SHA256.HashData(stream));
+    }
+
+    /// <summary>
+    /// Records a process in a run-owned file. The start time prevents a recycled PID
+    /// from being mistaken for a Radiance job after Rhino has been restarted.
+    /// </summary>
+    public static void WriteProcessIdentity(string folder, AnnualRunManifest manifest, AnnualRunPart part, AnnualProcessIdentity identity)
+    {
+        if (identity.ProcessId <= 0 || identity.StartUtcTicks <= 0) throw new ArgumentOutOfRangeException(nameof(identity));
+        File.WriteAllText(Path.Combine(folder, part.ProcessFile), $"{manifest.RunId:N} {identity.ProcessId} {identity.StartUtcTicks}");
+    }
+
+    public static AnnualProcessIdentity? ReadProcessIdentity(string folder, AnnualRunManifest manifest, AnnualRunPart part)
+    {
+        var path = Path.Combine(folder, part.ProcessFile);
+        if (!File.Exists(path)) return null;
+        var pieces = File.ReadAllText(path).Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (pieces.Length != 3 || !string.Equals(pieces[0], manifest.RunId.ToString("N"), StringComparison.Ordinal)
+            || !int.TryParse(pieces[1], out var processId) || !long.TryParse(pieces[2], out var startTicks)
+            || processId <= 0 || startTicks <= 0)
+            throw new InvalidDataException("Annual process identity is invalid or belongs to another run.");
+        return new AnnualProcessIdentity(processId, startTicks);
     }
 
     private static void CheckPath(string path)

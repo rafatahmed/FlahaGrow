@@ -94,6 +94,124 @@ public sealed class AnnualValidationTests : IDisposable
     }
 
     [Fact]
+    public async Task SuccessfulPipelineRemovesItsTransientFile()
+    {
+        var id = Guid.NewGuid();
+        var lines = AnnualBatch.Build(new[] { "echo 42 | findstr 42 > result.txt" }, id, 0);
+        Assert.Equal(0, await RunBatch(lines));
+        Assert.Equal("42", File.ReadAllText(Path.Combine(root, "result.txt")).Trim());
+        Assert.Empty(Directory.EnumerateFiles(root, "pipeline_part0_step*.tmp"));
+    }
+
+    [Fact]
+    public void SuccessfulRunDeletesLargeReproducibleIntermediatesUnlessKept()
+    {
+        var cleaned = AnnualBatch.Build(new[] { "echo done" }, Guid.NewGuid(), 0);
+        Assert.Contains(cleaned, line => line.Contains("WeathersunM*_0.smx"));
+        Assert.Contains(cleaned, line => line.Contains("cdsDDS_part0.mtx"));
+        var retained = AnnualBatch.Build(new[] { "echo done" }, Guid.NewGuid(), 0, keepIntermediates: true);
+        Assert.DoesNotContain(retained, line => line.Contains("WeathersunM*_0.smx"));
+    }
+
+    [Fact]
+    public void DiskSpaceEstimateIsConservativeAndChecked()
+    {
+        Assert.True(AnnualDiskSpace.RequiredFreeBytes(8760, 980) > 2L << 30);
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnnualDiskSpace.RequiredFreeBytes(0, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnnualDiskSpace.RequiredFreeBytes(1, 0));
+    }
+
+    [Fact]
+    public void ProcessIdentityIsRunBoundAndRejectsForeignOrMalformedRecords()
+    {
+        var folder = AnnualRun.Create(root, root, 1, new[] { "0 0 0 0 0 1" }, new(), hours: 2);
+        var manifest = AnnualRun.Read(folder); var part = manifest.Parts[0];
+        AnnualRun.WriteProcessIdentity(folder, manifest, part, new AnnualProcessIdentity(1234, 638930000000000000));
+        Assert.Equal(new AnnualProcessIdentity(1234, 638930000000000000), AnnualRun.ReadProcessIdentity(folder, manifest, part));
+        File.WriteAllText(Path.Combine(folder, part.ProcessFile), Guid.NewGuid().ToString("N") + " 1234 1");
+        Assert.Throws<InvalidDataException>(() => AnnualRun.ReadProcessIdentity(folder, manifest, part));
+    }
+
+    [Fact]
+    public async Task PersistedProcessIdentityTerminatesOnlyTheMatchingRealProcess()
+    {
+        using var process = Process.Start(new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "cmd.exe"), "/d /c timeout /t 30 /nobreak >nul") { UseShellExecute = false, CreateNoWindow = true })!;
+        var identity = new AnnualProcessIdentity(process.Id, process.StartTime.ToUniversalTime().Ticks);
+        Assert.False(AnnualProcessControl.TryTerminate(identity with { StartUtcTicks = identity.StartUtcTicks + 1 }));
+        Assert.False(process.HasExited);
+        Assert.True(AnnualProcessControl.TryTerminate(identity));
+        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public void ElectricScheduleExpansionWritesAValidatedAnnualRadianceMatrix()
+    {
+        var path = Path.Combine(root, "electric.ill");
+        var schedule = Enumerable.Repeat(0d, ElectricAnnualMatrix.HoursPerNonLeapYear).ToArray();
+        schedule[1] = .5; schedule[^1] = 1;
+        ElectricAnnualMatrix.Write(path, new[] { 10d, 20d }, schedule);
+        var rows = AnnualMatrix.Rows(path, ElectricAnnualMatrix.HoursPerNonLeapYear, 2).ToArray();
+        Assert.Equal(new[] { 0f, 0f }, rows[0]);
+        Assert.Equal(new[] { 5f, 10f }, rows[1]);
+        Assert.Equal(new[] { 10f, 20f }, rows[^1]);
+    }
+
+    [Fact]
+    public void AnnualCompositionAddsValidatedDaylightAndElectricMatrices()
+    {
+        var daylight = Matrix("1 2\n3 4");
+        var electric = Path.Combine(root, "electric-source.ill");
+        File.WriteAllText(electric, "#?RADIANCE\nNROWS=2\nNCOLS=2\nNCOMP=1\nFORMAT=ascii\n\n10 20\n30 40");
+        var combined = Path.Combine(root, "combined.ill");
+        AnnualResultComposition.Add(daylight, electric, combined, 2, 2);
+        Assert.Equal(new[] { 11f, 22f }, AnnualMatrix.Rows(combined, 2, 2).First());
+        Assert.Equal(new[] { 33f, 44f }, AnnualMatrix.Rows(combined, 2, 2).Last());
+    }
+
+    [Fact]
+    public void RunCompositionRequiresMatchingProvenanceAndProducesCacheableParts()
+    {
+        var source = Path.Combine(root, "source"); Directory.CreateDirectory(Path.Combine(source, "runs"));
+        var points = new[] { "0 0 1 0 0 1" };
+        string CreateCompletedRun(float first, float second)
+        {
+            var folder = AnnualRun.Create(Path.Combine(source, "runs"), source, 1, points, new(), hours: 2);
+            var manifest = AnnualRun.Read(folder); File.WriteAllLines(Path.Combine(folder, "0.pts"), points);
+            File.WriteAllText(Path.Combine(folder, manifest.Parts[0].ResultFile), $"#?RADIANCE\nNROWS=2\nNCOLS=1\nNCOMP=1\nFORMAT=ascii\n\n{first.ToString(System.Globalization.CultureInfo.InvariantCulture)}\n{second.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+            File.WriteAllText(Path.Combine(folder, manifest.Parts[0].StateFile), manifest.RunId.ToString("N") + " CommandsSucceeded");
+            return folder;
+        }
+        var daylight = CreateCompletedRun(1, 2); var electric = CreateCompletedRun(10, 20);
+        var combined = AnnualResultComposition.ComposeRuns(daylight, electric);
+        var manifest = AnnualRun.Read(combined);
+        AnnualPartStatus.RequireComplete(combined, manifest);
+        Assert.Equal(new[] { 11f }, AnnualMatrix.Rows(Path.Combine(combined, manifest.Parts[0].ResultFile), 2, 1).First());
+        Assert.Equal(new[] { 22f }, AnnualMatrix.Rows(Path.Combine(combined, manifest.Parts[0].ResultFile), 2, 1).Last());
+    }
+
+    [Theory]
+    [InlineData(-.01)]
+    [InlineData(1.01)]
+    [InlineData(double.NaN)]
+    public void ElectricScheduleRejectsInvalidDimmingValues(double value)
+    {
+        var schedule = Enumerable.Repeat(0d, ElectricAnnualMatrix.HoursPerNonLeapYear).ToArray(); schedule[12] = value;
+        Assert.Throws<InvalidDataException>(() => ElectricAnnualMatrix.ValidateSchedule(schedule));
+    }
+
+    [Fact]
+    public void LadybugWeaWritesTheAnnualMidpointWeatherContract()
+    {
+        var epw = Path.Combine(root, "weather.epw"); var wea = Path.Combine(root, "weather.wea");
+        var record = string.Join(",", Enumerable.Range(0, 35).Select(index => index switch { 1 => "1", 2 => "1", 3 => "1", 14 => "123", 15 => "45", _ => "0" }));
+        File.WriteAllLines(epw, new[] { "LOCATION,Fixture,-,FIX,0,0,25.25,51.57,3,10" }.Concat(Enumerable.Repeat("header", 7)).Concat(Enumerable.Repeat(record, LadybugWea.AnnualHours)));
+        LadybugWea.WriteFromEpw(epw, wea);
+        var lines = File.ReadLines(wea).Take(7).ToArray();
+        Assert.Equal("latitude 25.25", lines[1]); Assert.Equal("longitude -51.57", lines[2]); Assert.Equal("time_zone -45", lines[3]);
+        Assert.Equal("1 1 0.5 123 45", lines[6]);
+    }
+
+    [Fact]
     public async Task SuccessRequiresValidationAndCannotBeRerunInPlace()
     {
         var folder = AnnualRun.Create(root, root, 1, new[] { "0 0 0 0 0 1" }, new(), hours: 2);

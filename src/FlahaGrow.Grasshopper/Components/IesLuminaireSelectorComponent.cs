@@ -2,14 +2,17 @@ using System.Reflection;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using GH_IO.Serialization;
 using FlahaGrow.Core.Projects;
 using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components;
 
 /// <summary>Selects an LM-63 IES luminaire from the bundled or supplied IES library.</summary>
-public sealed class IesLuminaireSelectorComponent : GH_Component
+public sealed class IesLuminaireSelectorComponent : FlahaGrowComponent
 {
+    private string? selectedPath;
+    private string? selectedName;
     public IesLuminaireSelectorComponent() : base("Select IES Luminaire", "IES Select", "Selects an IES grow-light luminaire.", "FlahaGrow", "Electric Light") { }
     public override Guid ComponentGuid => new("492e14e7-163e-4c2a-a6d8-c44184da664d");
 
@@ -32,7 +35,12 @@ public sealed class IesLuminaireSelectorComponent : GH_Component
         var folder = string.Empty;
         dataAccess.GetData(0, ref run);
         dataAccess.GetData(1, ref folder);
-        if (!run) return;
+        if (!run)
+        {
+            if (!string.IsNullOrWhiteSpace(selectedPath)) dataAccess.SetData(0, selectedPath);
+            if (!string.IsNullOrWhiteSpace(selectedName)) dataAccess.SetData(1, selectedName);
+            return;
+        }
         try
         {
             folder = new LibraryPathResolver().ResolveSection(string.IsNullOrWhiteSpace(folder)
@@ -54,9 +62,22 @@ public sealed class IesLuminaireSelectorComponent : GH_Component
         form.Controls.Add(grid); form.Controls.Add(select); form.AcceptButton = select;
         if (form.ShowDialog() == DialogResult.OK && grid.SelectedRows.Count > 0 && grid.SelectedRows[0].Tag is IesEntry selected)
         {
-            dataAccess.SetData(0, selected.Path);
-            dataAccess.SetData(1, selected.Name);
+            selectedPath = selected.Path; selectedName = selected.Name;
+            dataAccess.SetData(0, selectedPath);
+            dataAccess.SetData(1, selectedName);
         }
+    }
+    public override bool Write(GH_IWriter writer)
+    {
+        if (!string.IsNullOrWhiteSpace(selectedPath)) writer.SetString("SelectedPath", selectedPath);
+        if (!string.IsNullOrWhiteSpace(selectedName)) writer.SetString("SelectedName", selectedName);
+        return base.Write(writer);
+    }
+    public override bool Read(GH_IReader reader)
+    {
+        selectedPath = reader.ItemExists("SelectedPath") ? reader.GetString("SelectedPath") : null;
+        selectedName = reader.ItemExists("SelectedName") ? reader.GetString("SelectedName") : null;
+        return base.Read(reader);
     }
 
     private static IesEntry Parse(string path)

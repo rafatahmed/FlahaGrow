@@ -18,6 +18,7 @@ public static class AnnualPartStatus
             if (!state.StartsWith(prefix, StringComparison.Ordinal)) return new("Invalid", "State belongs to another run or is incomplete.");
             state = state[prefix.Length..];
             if (state.StartsWith("Failed ", StringComparison.Ordinal)) return new("Failed", state);
+            if (state == "Cancelled") return new("Cancelled", "Cancelled by the Annual Simulation component.");
             if (state == "Running") return new("Running", "Commands executing.");
             if (state != "CommandsSucceeded") return new("Invalid", "Unknown command state.");
             AnnualMatrix.ValidateIlluminance(Path.Combine(folder, part.ResultFile), run.Hours, part.Sensors);

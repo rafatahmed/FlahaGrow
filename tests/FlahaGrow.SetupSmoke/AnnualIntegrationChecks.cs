@@ -5,6 +5,7 @@ using FlahaGrow.Core.Projects;
 using FlahaGrow.Core.Radiance;
 using FlahaGrow.Grasshopper.Components;
 using FlahaGrow.Grasshopper.Parameters;
+using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
 
@@ -22,9 +23,10 @@ internal static class AnnualIntegrationChecks
         var grid = Path.Combine(source, "model", "grid", "original.pts");
         File.WriteAllText(grid, "0 0 0 0 0 1");
         var weather = Path.Combine(source, "weather.epw");
-        File.WriteAllLines(weather, Enumerable.Repeat("fixture header", 8).Concat(Enumerable.Repeat(string.Join(",", Enumerable.Repeat("1", 35)), 2)));
+        var record = string.Join(",", Enumerable.Range(0, 35).Select(index => index switch { 1 or 2 or 3 => "1", 14 or 15 => "1", _ => "0" }));
+        File.WriteAllLines(weather, new[] { "LOCATION,fixture,-,FIX,0,0,1,2,3,4" }.Concat(Enumerable.Repeat("fixture header", 7)).Concat(Enumerable.Repeat(record, LadybugWea.AnnualHours)));
         var bin = Path.Combine(root, "checked bin"); Directory.CreateDirectory(bin);
-        var tools = new[] { "rcontrib", "epw2wea", "gendaymtx", "oconv", "rfluxmtx", "dctimestep", "rmtxop", "cnt", "rcalc" }
+        var tools = new[] { "rcontrib", "gendaymtx", "oconv", "rfluxmtx", "dctimestep", "rmtxop", "cnt", "rcalc" }
             .ToDictionary(name => name, name => Path.Combine(bin, name + ".exe"));
         foreach (var path in tools.Values) File.WriteAllText(path, "never executed");
         var lib = Path.Combine(root, "separate library"); Directory.CreateDirectory(lib);
@@ -49,7 +51,9 @@ internal static class AnnualIntegrationChecks
         if (Solve(new AnnualSimulationComponent(), wrongBin).Outputs.ContainsKey(0) || Directory.Exists(Path.Combine(source, "runs"))) throw new Exception("Bin mismatch wrote preparation.");
         var invalidSky = Inputs(2, 1);
         if (Solve(new AnnualSimulationComponent(), invalidSky).Outputs.ContainsKey(0) || Directory.Exists(Path.Combine(source, "runs"))) throw new Exception("Invalid sky wrote preparation.");
-        var first = Solve(new AnnualSimulationComponent(), Inputs(4, 12));
+        var annual = new AnnualSimulationComponent();
+        var first = Solve(annual, Inputs(4, 12));
+        if (!first.Outputs.ContainsKey(0)) throw new Exception("Annual preparation failed: " + string.Join(" | ", annual.RuntimeMessages(GH_RuntimeMessageLevel.Error)));
         foreach (var (numeric, named) in new[] { ("1", "very low"), ("2", "low"), ("3", "mid"), ("4", "high"), ("5", "very high") })
         {
             var method = typeof(AnnualSimulationComponent).GetMethod("Detail", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -57,18 +61,29 @@ internal static class AnnualIntegrationChecks
                 throw new Exception("Numeric/named quality diverged: " + numeric);
         }
         var firstFolder = (string)first.Outputs[0]!;
+        var reused = Solve(annual, Inputs(4, 12));
+        if ((string)reused.Outputs[0]! != firstFolder) throw new Exception("Unchanged annual inputs created a duplicate prepared run.");
+        var annualArchive = new GH_Archive();
+        if (!annualArchive.AppendObject(annual, "Annual")) throw new Exception("Annual run archive write failed.");
+        var restoredAnnual = new AnnualSimulationComponent();
+        if (!annualArchive.ExtractObject(restoredAnnual, "Annual")) throw new Exception("Annual run archive read failed.");
+        var reopened = Solve(restoredAnnual, Inputs(4, 12));
+        if ((string)reopened.Outputs[0]! != firstFolder) throw new Exception("Saved annual component did not reopen its prior run.");
         var second = Solve(new AnnualSimulationComponent(), Inputs(1, 1));
         var secondFolder = (string)second.Outputs[0]!;
         if (firstFolder == secondFolder || AnnualRun.Read(firstFolder).Parts.Length != 4 || AnnualRun.Read(secondFolder).Parts.Length != 1)
             throw new Exception("Annual runs are not isolated.");
         foreach (var (folder, sky) in new[] { (firstFolder, 4), (secondFolder, 1) })
         {
-            if (!File.ReadAllText(Path.Combine(folder, "skyglow.rad")).Contains("h=r" + sky)) throw new Exception("Receiver mismatch.");
+            var receiver = File.ReadAllText(Path.Combine(folder, "skyglow.rad"));
+            if (!receiver.Contains("h=r" + sky) || !receiver.Contains("h=u") || !receiver.Contains("groundglow source ground")
+                || !receiver.Contains("skyglow source sky") || receiver.Contains("ground_glow") || receiver.Contains("sky_glow"))
+                throw new Exception("Receiver basis is not the required one-ground-plus-Reinhart-sky matrix.");
             var batch = File.ReadAllText(Directory.GetFiles(folder, "*.bat")[0]);
             if (!batch.Contains("\"" + tools["gendaymtx"] + "\" -m " + sky) || !batch.Contains("\"" + tools["rmtxop"] + "\" -fa -t") || batch.Contains(" | ")) throw new Exception("Batch uses unselected executable, unchecked pipeline, or sky basis.");
             if (!batch.Contains(lib)) throw new Exception("Custom library was lost.");
             var directLine = batch.Split('\n').Single(line => line.Contains("rfluxmtx.exe") && line.Contains("bmodel_"));
-            if (!directLine.Contains("-ab 1") || directLine.Contains("-ab 2") || directLine.Contains("-ab 3"))
+            if (!directLine.Contains("-ab 0") || directLine.Contains("-ab 1") || directLine.Contains("-ab 2") || directLine.Contains("-ab 3"))
                 throw new Exception("Direct subtraction inherited total interreflection depth.");
             if (!batch.Contains("rcontrib.exe\" -I+ -ab 1")) throw new Exception("Sun coefficient depth drifted from DDS contract.");
             File.WriteAllText(Path.Combine(folder, "annualRfinal_part99.ill"), "999 999");
@@ -117,6 +132,15 @@ internal static class AnnualIntegrationChecks
         if (!File.ReadAllBytes(raw).SequenceEqual(original)) throw new Exception("Rejected matrix replaced cache.");
         Result(secondFolder, 0, "9\n8");
         if (Solve(new AnnualResultCacheComponent(), new() { [0] = secondFolder, [1] = false }).Outputs.ContainsKey(0)) throw new Exception("Changed source reused stale cache.");
+        var runningManifest = AnnualRun.Read(secondFolder);
+        File.WriteAllText(Path.Combine(secondFolder, runningManifest.Parts[0].StateFile), runningManifest.RunId.ToString("N") + " Running");
+        File.WriteAllText(Path.Combine(secondFolder, "annual_progress_part0.log"), "[Part 0] 7/8 Direct-sun annual matrix");
+        var staged = Solve(new AnnualSimulationProgressComponent(), new() { [0] = secondFolder });
+        if (!((IEnumerable<string>)staged.Outputs[0]!).First().Contains("Stage 7/8: Direct-sun annual matrix")
+            || Math.Abs((double)staged.Outputs[3]! - 75d) > 0.001
+            || !((string)staged.Outputs[2]!).Contains("6/8 stages complete"))
+            throw new Exception("Progress did not report the latest batch stage and stage coverage.");
+        File.WriteAllText(Path.Combine(secondFolder, runningManifest.Parts[0].StateFile), runningManifest.RunId.ToString("N") + " CommandsSucceeded");
         File.WriteAllText(Path.Combine(secondFolder, "annual_progress_part0.log"), "[Part 0] Completed");
         File.WriteAllText(Path.Combine(secondFolder, "annual_progress_part99.log"), "unrelated");
         var progress = Solve(new AnnualSimulationProgressComponent(), new() { [0] = secondFolder });
@@ -171,10 +195,13 @@ internal static class AnnualIntegrationChecks
 
     private static void CheckCacheReaders(string root)
     {
-        var path = Path.Combine(root, "legacy-reader.f32");
-        File.WriteAllText(Path.ChangeExtension(path, ".meta.json"), "{\"sensors\":2,\"hours\":2,\"ncomp\":1}");
-        using (var writer = new BinaryWriter(File.Create(path)))
-            foreach (var value in new[] { 1f, 2f, 3f, 4f }) writer.Write(value);
+        // Direct readers must consume the same manifest-bound cache that Load Annual
+        // Result publishes; an arbitrary .f32 plus sidecar is intentionally rejected.
+        var folder = AnnualRun.Create(Path.Combine(root, "reader-run"), root, 1,
+            new[] { "0 0 0 0 0 1", "1 0 0 0 0 1" }, new(), hours: 2);
+        Result(folder, 0, "1 2\n3 4");
+        var built = Solve(new AnnualResultCacheComponent(), new() { [0] = folder, [1] = true });
+        var path = (string)built.Outputs[0]!;
         var valid = Solve(new IlluminancePointInTimeComponent(), new() { [0] = path, [1] = " hour ", [2] = 1, [3] = true });
         if (!((string)valid.Outputs[1]!).Contains("hour 1")) throw new Exception("Whitespace mode did not select hour.");
         using (var writer = new BinaryWriter(File.Create(path)))
@@ -182,18 +209,23 @@ internal static class AnnualIntegrationChecks
         foreach (var component in new GH_Component[] { new IlluminancePointInTimeComponent(), new IlluminanceSensorComponent() })
         {
             var bad = Solve(component, new() { [0] = path, [1] = "hour", [2] = 1, [3] = true });
-            if (bad.Outputs.ContainsKey(0) || !((string)bad.Outputs[1]!).Contains("negative")) throw new Exception("Legacy negative cache was emitted as lux.");
+            if (bad.Outputs.ContainsKey(0) || !((string)bad.Outputs[1]!).Contains("provenance")) throw new Exception("Modified cache was emitted as lux.");
         }
         if (Solve(new HourlyParComponent(), new() { [0] = path, [1] = 1 }).Outputs.ContainsKey(0)
             || Solve(new ParEachSensorComponent(), new() { [0] = path, [1] = 0 }).Outputs.ContainsKey(0))
             throw new Exception("Legacy negative cache was converted to PPFD.");
-        Console.WriteLine("PASS cache reader quality: whitespace mode, legacy negative lux/PPFD rejection, preserved invalid source.");
+        Console.WriteLine("PASS cache reader provenance: whitespace mode, manifest/signature rejection of modified cache, no invalid lux/PPFD emission.");
     }
 
     private static void Result(string folder, int index, string values)
     {
         var manifest = AnnualRun.Read(folder); var part = manifest.Parts[index];
-        File.WriteAllText(Path.Combine(folder, part.ResultFile), $"#?RADIANCE\nNROWS={manifest.Hours}\nNCOLS={part.Sensors}\nNCOMP=1\nFORMAT=ascii\n\n{values}");
+        var rows = values.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        // Two or more logical rows represent a valid miniature matrix and are cycled
+        // to the declared 8,760-hour contract. A single row remains deliberately
+        // truncated for the cache-rejection test above.
+        var payload = rows.Length < 2 ? values : string.Join("\n", Enumerable.Range(0, manifest.Hours).Select(hour => rows[hour % rows.Length]));
+        File.WriteAllText(Path.Combine(folder, part.ResultFile), $"#?RADIANCE\nNROWS={manifest.Hours}\nNCOLS={part.Sensors}\nNCOMP=1\nFORMAT=ascii\n\n{payload}");
         File.WriteAllText(Path.Combine(folder, part.StateFile), manifest.RunId.ToString("N") + " CommandsSucceeded");
     }
 

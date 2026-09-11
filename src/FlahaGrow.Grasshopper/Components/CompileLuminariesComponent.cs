@@ -4,7 +4,7 @@ using FlahaGrow.Core.Projects;
 namespace FlahaGrow.Grasshopper.Components;
 
 /// <summary>Writes generated xform placement lines into the legacy luminaries.rad file.</summary>
-public sealed class CompileLuminariesComponent : GH_Component
+public sealed class CompileLuminariesComponent : FlahaGrowComponent
 {
     public CompileLuminariesComponent() : base("Compile Luminaires", "Compile Lights", "Writes luminaries.rad in the project Luminaire_files folder.", "FlahaGrow", "Electric Light") { }
     public override Guid ComponentGuid => new("31b19b55-7384-4f37-bb1a-f436c3cbaa8b");

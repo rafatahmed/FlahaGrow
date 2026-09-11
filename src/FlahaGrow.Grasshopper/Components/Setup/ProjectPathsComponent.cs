@@ -80,7 +80,7 @@ public class ProjectPathsComponent : AsyncSetupComponent<PathResolution>
         else
         {
             da.SetData(statusIndex, Result is null ? Status : string.Join("\n", Result.Errors));
-            if (Result is not null) Message = "Not ready";
+            if (Result is not null) SetRevisionMessage("Not ready");
         }
     }
     private static string? Optional(string? text) => string.IsNullOrWhiteSpace(text) ? null : text;

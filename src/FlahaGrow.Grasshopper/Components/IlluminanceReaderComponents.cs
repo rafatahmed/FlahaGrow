@@ -1,10 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Grasshopper.Kernel;
+using FlahaGrow.Core.Annual;
 
 namespace FlahaGrow.Grasshopper.Components;
 
-public abstract class IlluminanceReaderComponent : GH_Component
+public abstract class IlluminanceReaderComponent : FlahaGrowComponent
 {
     protected IlluminanceReaderComponent(string name, string nick, Guid id) : base(name, nick, "Reads annual illuminance from a FlahaGrow .f32 cache by sensor or hour.", "FlahaGrow", "Annual") => Id = id;
     private Guid Id { get; }
@@ -24,6 +25,7 @@ public abstract class IlluminanceReaderComponent : GH_Component
             if (meta.Ncomp != 1) throw new InvalidDataException($"ncomp={meta.Ncomp} is not supported; illuminance requires one component.");
             var expectedBytes = checked((long)meta.Sensors * meta.Hours * sizeof(float));
             if (new FileInfo(path).Length != expectedBytes) throw new InvalidDataException($"Cache size mismatch: got {new FileInfo(path).Length / sizeof(float)} floats, expected {(long)meta.Sensors * meta.Hours}.");
+            RequireProvenance(path, meta);
             using var f = File.OpenRead(path); var values = new List<float>();
             if (mode.Trim().Equals("hour", StringComparison.OrdinalIgnoreCase))
             {
@@ -44,10 +46,25 @@ public abstract class IlluminanceReaderComponent : GH_Component
         }
         catch (Exception ex) { da.SetData(1, ex.Message); AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
     }
+    private static void RequireProvenance(string path, Meta meta)
+    {
+        var folder = Path.GetDirectoryName(Path.GetFullPath(path)) ?? throw new InvalidDataException("Cache folder is unavailable.");
+        var manifest = AnnualRun.Read(folder);
+        AnnualPartStatus.RequireComplete(folder, manifest);
+        var parts = AnnualRun.RequireResults(folder, manifest);
+        var signature = AnnualRun.HashFile(Path.Combine(folder, AnnualRun.ManifestName)) + ":" + string.Join(":", parts.Select(AnnualRun.HashFile));
+        if (meta.RunId != manifest.RunId || meta.SourceSignature != signature || meta.ValidationVersion != 1
+            || !string.Equals(meta.CacheHash, AnnualRun.HashFile(path), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Cache provenance does not match the manifest-owned, validated annual result. Rebuild Load Annual Result.");
+    }
     private sealed record Meta(
         [property: JsonPropertyName("sensors")] int Sensors,
         [property: JsonPropertyName("hours")] int Hours,
-        [property: JsonPropertyName("ncomp")] int Ncomp);
+        [property: JsonPropertyName("ncomp")] int Ncomp,
+        [property: JsonPropertyName("runId")] Guid RunId,
+        [property: JsonPropertyName("sourceSignature")] string SourceSignature,
+        [property: JsonPropertyName("validationVersion")] int ValidationVersion,
+        [property: JsonPropertyName("cacheHash")] string CacheHash);
 }
 public sealed class IlluminancePointInTimeComponent : IlluminanceReaderComponent { public IlluminancePointInTimeComponent() : base("Illuminance Point in Time", "Illuminance", new Guid("9e076d21-00df-4ea2-870e-caf9748ac3d3")) { } }
 public sealed class IlluminanceSensorComponent : IlluminanceReaderComponent { public IlluminanceSensorComponent() : base("Illuminance Sensor", "Illuminance Sensor", new Guid("3d38a66d-b381-45f2-ad70-57e6be84a6cc")) { } }

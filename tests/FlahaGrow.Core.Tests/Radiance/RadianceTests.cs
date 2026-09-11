@@ -299,7 +299,7 @@ public sealed class RadianceTests
         public void Install(string root)
         {
             Directories.Add(root); Directories.Add(Path.Combine(root, "bin"));
-            foreach (var tool in new[] { "rcontrib", "epw2wea", "gendaymtx", "oconv", "rfluxmtx", "dctimestep", "rmtxop", "cnt", "rcalc", "ies2rad", "xform" })
+            foreach (var tool in new[] { "rcontrib", "gendaymtx", "oconv", "rfluxmtx", "dctimestep", "rmtxop", "cnt", "rcalc", "ies2rad", "xform" })
                 Entries[Path.Combine(root, "bin", tool + ".exe")] = "1";
             foreach (var file in new[] { "reinsrc.cal", "reinhart.cal", "source.cal", "lamp.tab" }) Entries[Path.Combine(root, "lib", file)] = "1";
         }

@@ -6,7 +6,7 @@ using Grasshopper.Kernel;
 namespace FlahaGrow.Grasshopper.Components;
 
 /// <summary>Shared legacy-style 365 by 24 classified heatmap viewer and PNG exporter.</summary>
-public abstract class AnnualHeatmapComponent : GH_Component
+public abstract class AnnualHeatmapComponent : FlahaGrowComponent
 {
     private readonly string defaultTitle;
     private static readonly HashSet<Form> OpenForms = new();

@@ -5,7 +5,7 @@ namespace FlahaGrow.Grasshopper.Components;
 /// <summary>
 /// Compares daily light integrals with a plant-specific target.
 /// </summary>
-public sealed class DliTargetComponent : GH_Component
+public sealed class DliTargetComponent : FlahaGrowComponent
 {
     public DliTargetComponent()
         : base("DLI Target", "DLI Target", "Reports daily DLI sufficiency and deficiency against a plant-specific target.", "FlahaGrow", "Metrics")

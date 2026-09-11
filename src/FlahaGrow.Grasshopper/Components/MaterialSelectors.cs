@@ -1,13 +1,15 @@
 using System.Reflection;
 using System.Globalization;
 using System.Windows.Forms;
+using GH_IO.Serialization;
 using FlahaGrow.Core.Projects;
 using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components;
 
-public abstract class OpaqueMaterialSelectorComponent : GH_Component
+public abstract class OpaqueMaterialSelectorComponent : FlahaGrowComponent
 {
+    private string? selected;
     protected OpaqueMaterialSelectorComponent(string name, string nickname, string description, Guid id)
         : base(name, nickname, description, "FlahaGrow", "Materials") => ComponentId = id;
 
@@ -30,10 +32,7 @@ public abstract class OpaqueMaterialSelectorComponent : GH_Component
         var folder = string.Empty;
         dataAccess.GetData(0, ref run);
         dataAccess.GetData(1, ref folder);
-        if (!run)
-        {
-            return;
-        }
+        if (!run) { if (!string.IsNullOrWhiteSpace(selected)) dataAccess.SetData(0, selected); return; }
 
         try
         {
@@ -43,11 +42,20 @@ public abstract class OpaqueMaterialSelectorComponent : GH_Component
         }
         catch (Exception exception) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, exception.Message); return; }
 
-        var selected = MaterialSelectionDialog.Select(folder);
-        if (!string.IsNullOrWhiteSpace(selected))
+        if (!string.IsNullOrWhiteSpace(selected = MaterialSelectionDialog.Select(folder)))
         {
             dataAccess.SetData(0, selected);
         }
+    }
+    public override bool Write(GH_IWriter writer)
+    {
+        if (!string.IsNullOrWhiteSpace(selected)) writer.SetString("Selected", selected);
+        return base.Write(writer);
+    }
+    public override bool Read(GH_IReader reader)
+    {
+        selected = reader.ItemExists("Selected") ? reader.GetString("Selected") : null;
+        return base.Read(reader);
     }
 }
 

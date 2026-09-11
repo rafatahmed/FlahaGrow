@@ -1,10 +1,11 @@
 using System.Text.Json;
 using FlahaGrow.Core.Operations;
+using FlahaGrow.Grasshopper.Components;
 using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components.Setup;
 
-public abstract class AsyncSetupComponent<T> : GH_Component where T : class
+public abstract class AsyncSetupComponent<T> : FlahaGrowComponent where T : class
 {
     private readonly SetupOperation<T> operation = new();
     private string? currentKey;
@@ -46,7 +47,7 @@ public abstract class AsyncSetupComponent<T> : GH_Component where T : class
             Status = outcome.Cancelled ? "Cancelled." : outcome.Error ?? "Ready.";
             if (outcome.Error is not null) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, outcome.Error);
         }
-        Message = Status == "Working…" ? "Working" : Result is null ? "Not ready" : "Ready";
+        SetRevisionMessage(Status == "Working…" ? "Working" : Result is null ? "Not ready" : "Ready");
     }
 
     protected void Invalidate()

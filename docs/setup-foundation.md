@@ -1,6 +1,8 @@
-# Setup foundation: first implementation increment
+# Setup foundation: historical first-increment record
 
-These notes describe the first shared-core increment. Subsequent increments implemented [workspaces](setup-workspaces.md), [Radiance checks](setup-radiance.md), and [Grasshopper Setup components](setup-components.md). Downstream run migration remains outstanding in [the implementation plan](setup-implementation-plan.md).
+Original increment: 2026-09-07. This document preserves its implementation evidence; it is not the active Setup or annual-run specification. Use the [documentation index](README.md), [Setup guide](setup-components.md), and [current status](current-status.md) for current behavior.
+
+These notes describe the first shared-core increment. Subsequent increments implemented [workspaces](setup-workspaces.md), [Radiance checks](setup-radiance.md), and [Grasshopper Setup components](setup-components.md). The annual-run contract is now documented in [annual run isolation](annual-run-isolation.md); its outstanding validation is tracked in [current status](current-status.md).
 
 ## Implemented
 

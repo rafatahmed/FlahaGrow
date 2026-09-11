@@ -5,7 +5,7 @@ using System.Globalization;
 namespace FlahaGrow.Grasshopper.Components;
 
 /// <summary>Generates Radiance xform placement commands for selected luminaires.</summary>
-public sealed class LightingGeometryComponent : GH_Component
+public sealed class LightingGeometryComponent : FlahaGrowComponent
 {
     public LightingGeometryComponent() : base("Lighting Geometry", "Light Geometry", "Generates xform commands that position Radiance luminaire files at points.", "FlahaGrow", "Electric Light") { }
     public override Guid ComponentGuid => new("2bb0d862-d310-4c90-8836-3760fd9870c5");

@@ -5,7 +5,7 @@ namespace FlahaGrow.Grasshopper.Components;
 /// <summary>
 /// Converts illuminance to PPFD using a user-supplied, spectrum-specific factor.
 /// </summary>
-public sealed class LuxToPpfdComponent : GH_Component
+public sealed class LuxToPpfdComponent : FlahaGrowComponent
 {
     private const double DefaultConversionFactor = 0.0185;
 

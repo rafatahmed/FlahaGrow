@@ -1,4 +1,6 @@
-# Shared Radiance discovery and checks
+# Shared Radiance discovery and checks — historical implementation record
+
+Original implementation evidence: 2026-09-07. This document describes the discovery service and local observations from that date. The current operator contract is [Setup guide](setup-components.md); current limitations and validation are in [current status](current-status.md).
 
 The visible [Setup components](setup-components.md) use shared installation discovery, workflow capability checks, cancellable process execution, and cached readiness probes. Hidden legacy components remain loadable for saved definitions.
 
@@ -17,7 +19,7 @@ Selection rules:
 
 | Workflow | Required executables | Required library files |
 | --- | --- | --- |
-| Annual daylight | rcontrib, epw2wea, gendaymtx, oconv, rfluxmtx, dctimestep, rmtxop, cnt, rcalc | reinsrc.cal, reinhart.cal |
+| Annual daylight | rcontrib, gendaymtx, oconv, rfluxmtx, dctimestep, rmtxop, cnt, rcalc | reinsrc.cal, reinhart.cal |
 | Electric-light preparation | rcontrib, ies2rad, xform, oconv | source.cal, lamp.tab |
 
 The electric-light requirements were exercised with the bundled `ULHB-70W.IES` fixture. These capability lists cover the current preparation paths, not every possible custom Radiance model, photometry variant, or auxiliary dependency.

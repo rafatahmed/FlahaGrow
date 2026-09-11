@@ -1,6 +1,6 @@
 # Component migration and current wiring contract
 
-Updated 2026-09-10. Use the [current status](current-status.md) for release/installation status and the [25-script audit](component-io-audit-2026-09-09.md) for the complete input/output inventory and known differences.
+Updated 2026-09-11. Use the [current status](current-status.md) for release/installation status and the [25-script audit](component-io-audit-2026-09-09.md) for the complete input/output inventory and known differences.
 
 ## Identify components before reconnecting
 
@@ -29,7 +29,7 @@ See the audit's hidden identity table for all six hidden Setup components. Compi
 
 Keep the original sensor order. Optional Pts creates upward normals; exported oriented grids should use the .pts source. List-conversion helpers Hourly PPFD / PPFD Each Sensor accept numeric lists, not cache paths.
 
-Numeric quality levels now match named presets, but the independent Python custom-parameter port has not been restored. Custom spectral CSV factors still have numerical drift (IO03). Calendar/leap-year and trigger behavior remain open. Run=True launches a new run on every solve; a false→true transition does not launch the previously prepared folder.
+Numeric quality levels now match named presets, but the independent Python custom-parameter port has not been restored. Custom spectral CSV factors still have numerical drift (IO03). Leap-year input is intentionally rejected. `Run` launches only on a false→true edge; an unchanged prepared run launches on its next edge and a completed run creates a new isolated folder on its next edge.
 
 ## Result compatibility
 
@@ -37,7 +37,7 @@ The binary format remains little-endian float32, row-major hours × sensors, wit
 
 New progress/cache builders require a schema-2 manifest, successful command states and final scalar ASCII matrices with matching dimensions, finite values and nonnegative illuminance. Headers may contain copied blank provenance before FORMAT; the data separator follows FORMAT. Malformed numeric data must never be skipped to make a cache build succeed.
 
-Flat legacy result folders and schema-1 runs require regeneration under the supported pipeline. Do not fabricate manifests or success states. Existing valid dimension-only caches can be read directly by legacy-compatible readers; they do not gain provenance validation. Selected negative/nonfinite cache values now fail lux/PPFD reading.
+Flat legacy result folders and schema-1 runs require regeneration under the supported pipeline. Do not fabricate manifests or success states. Direct readers require manifest/signature/cache-hash provenance; legacy dimension-only caches must be rebuilt from a valid manifest-owned result. Selected negative/nonfinite cache values fail lux/PPFD reading.
 
 Load Annual Result writes F32 and metadata; it no longer exports a merged .ill. It does not delete intermediate data. See [run isolation](annual-run-isolation.md) and the [live-result audit](annual-result-audit-2026-09-10.md).
 
@@ -47,7 +47,7 @@ Setup Library is the FlahaGrow asset root; connect it to Materials/Glazing/IES s
 
 For electric preparation, use Workflow=1 and its checked Radiance environment. IES selector → IES to Radiance → Lighting Geometry → Compile Luminaires. Both conversion and compilation receive the same text Project root and use `Project/Luminaire_files`. Python used `parent(folder)/Luminaire_files`: reconnect the project root explicitly.
 
-The chain ends at luminaries.rad; it does not automatically simulate electric illuminance, combine it with daylight, or produce a power schedule. IES rerun file ownership/rewrite issues (IO07) and selector parsing/persistence issues remain open.
+Connect the resulting `luminaries.rad`, a common 8,760-hour dimming schedule, and sensor points to **Electric Annual Simulation** to calculate a manifest-owned electric matrix. Feed its completed Folder and the completed Annual Simulation Folder to **Combine Annual Lighting**, then connect the new Folder to Load Annual Result. Control-schedule derivation and real Rhino export acceptance remain required.
 
 ## Migration acceptance
 

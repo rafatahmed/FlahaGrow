@@ -6,7 +6,7 @@ using FlahaGrow.Core.Annual;
 namespace FlahaGrow.Grasshopper.Components;
 
 /// <summary>Builds the legacy row-major annual float cache from one or four Radiance .ill files.</summary>
-public sealed class AnnualResultCacheComponent : GH_Component
+public sealed class AnnualResultCacheComponent : FlahaGrowComponent
 {
     public AnnualResultCacheComponent() : base("Load Annual Result", "Load Result", "Merges annualRfinal part files and writes the FlahaGrow .f32 plus metadata cache.", "FlahaGrow", "Annual") { }
     public override Guid ComponentGuid => new("0e5f7114-fbb9-4a77-a3f4-40ccd0c0c258");

@@ -4,7 +4,7 @@ using Grasshopper.Kernel;
 namespace FlahaGrow.Grasshopper.Components;
 
 /// <summary>Runs the same rcontrib version check as the legacy component.</summary>
-public sealed class RadianceVersionComponent : GH_Component
+public sealed class RadianceVersionComponent : FlahaGrowComponent
 {
     public RadianceVersionComponent()
         : base("Radiance Version", "Radiance Ver", "Returns the installed Radiance rcontrib version.", "FlahaGrow", "Setup")

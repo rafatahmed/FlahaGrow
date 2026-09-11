@@ -5,7 +5,7 @@ namespace FlahaGrow.Grasshopper.Components;
 /// <summary>
 /// Finds the Radiance rcontrib executable without relying on a machine-specific path.
 /// </summary>
-public sealed class RadianceStatusComponent : GH_Component
+public sealed class RadianceStatusComponent : FlahaGrowComponent
 {
     public RadianceStatusComponent()
         : base("Radiance Status", "Radiance", "Checks whether the Radiance rcontrib executable can be found.", "FlahaGrow", "Setup")

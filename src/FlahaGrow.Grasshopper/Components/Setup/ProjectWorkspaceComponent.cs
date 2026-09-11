@@ -47,9 +47,12 @@ public sealed class ProjectWorkspaceComponent : AsyncSetupComponent<WorkspaceCon
         var key = Key(request);
         Update(key, create || reread || Changed(key), token =>
         {
-            if (expectedId is not null)
+            if (expectedId is not null && !create)
             {
-                var current = ProjectManifestCodec.Read(new ProjectPathReader().ReadManifest(Path.Combine(paths.Project.Path, ProjectManifest.FileName)));
+                var manifestPath = Path.Combine(paths.Project.Path, ProjectManifest.FileName);
+                if (!File.Exists(manifestPath))
+                    throw new InvalidDataException($"Remembered workspace manifest is missing at '{manifestPath}'. Press Initialize to create a workspace; enable Adopt to preserve this legacy study.");
+                var current = ProjectManifestCodec.Read(new ProjectPathReader().ReadManifest(manifestPath));
                 if (current.ProjectId != expectedId) throw new InvalidDataException("Project identity changed; reconnect the intended project.");
             }
             var result = create ? service.Initialize(request, token) : service.Open(paths, analysis, token);

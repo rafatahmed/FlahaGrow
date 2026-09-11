@@ -1,4 +1,6 @@
-# Workspace creation and analysis management
+# Workspace creation and analysis management — historical increment record
+
+Original increment: 2026-09-07. The API notes and test evidence below are retained for reference. For current operator behavior, use the [Setup guide](setup-components.md); for current run ownership, use [annual run isolation](annual-run-isolation.md).
 
 Implemented as the second Setup core increment. Subsequent increments added [Radiance services](setup-radiance.md) and [Grasshopper Setup components](setup-components.md).
 

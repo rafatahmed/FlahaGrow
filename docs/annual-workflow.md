@@ -1,186 +1,54 @@
-# Annual greenhouse daylight workflow
+# Annual daylight workflow
 
-This guide documents the compiled **FlahaGrow** Grasshopper annual workflow. It calculates hourly illuminance for a sensor grid, stores 8,760 annual values per sensor, and provides the data required by the PPFD, DLI, electric-light, and visualisation stages.
+Updated 2026-09-11. This is the current operating guide for the compiled annual daylight workflow. **Release boundary:** the workflow may prepare, run, trace, and structurally validate a study, but it is not approved for design or scientific decisions until the numerical completion gate in [plugin-gap-audit-2026-09-11.md](plugin-gap-audit-2026-09-11.md) passes. A completed command sequence is not a validated annual result.
 
-The current implementation is a three-channel/RGB Radiance workflow. Hyperspectral simulation is planned and is not represented by these annual illuminance results.
-
-## What the workflow produces
-
-For every sensor point, the workflow produces a row-major annual cache:
+## Connect the workflow
 
 ```text
-hour 0:    sensor 0, sensor 1, ... sensor N
-hour 1:    sensor 0, sensor 1, ... sensor N
-...
-hour 8759: sensor 0, sensor 1, ... sensor N
+Simulation Paths → Working Directory → Radiance Status
+                         |                   |
+                         +-- Analysis --------+-- Radiance
+                                  |                  |
+Honeybee ModelToRad root + EPW ---+--> Annual Simulation → Folder
+                                                       ├─→ Progress
+                                                       └─→ Load Annual Result → F32
 ```
 
-The cache is little-endian `float32` illuminance in lux. Its metadata records the number of sensors, 8,760 hours, and one illuminance component. Use the cache as the source for point-in-time illuminance, sensor annual illuminance, PPFD conversion, and DLI aggregation.
+Annual Simulation **Project** is the Honeybee ModelToRad export root, not the Setup workspace. It must contain `model/scene/envelope.rad`, `envelope.mat`, `envelope.blk`, and a `.pts` grid in `model/grid` unless **Pts** is supplied. Connect typed **Analysis** and **Radiance** whenever the visible Setup components are used. The connected EPW must contain exactly 8,760 non-leap-year records; FlahaGrow snapshots it and writes a Ladybug-compatible `weather.wea` before invoking `gendaymtx`.
 
-## Prerequisites
+## Annual Simulation lifecycle
 
-- Rhino 8 and Grasshopper on Windows.
-- The compiled `FlahaGrow.gha` installed in `%AppData%\Grasshopper\Libraries`.
-- Ladybug Tools / Honeybee components used to create the Radiance model and sensor grid.
-- Radiance commands available from Ladybug Tools, normally:
-
-  `C:\Program Files\ladybug_tools\radiance\bin`
-
-  The annual runner detects this path automatically. Its `Bin` input can specify another Radiance `bin` folder.
-- An EPW weather file and a writable project folder.
-
-The runner also sets `RAYPATH` to the sibling Radiance `lib` folder so that `reinsrc.cal` and `reinhart.cal` are available for direct-sun calculations.
-
-## Input project contract
-
-The Annual Simulation `Project folder` is the Honeybee ModelToRad project root. Before the annual run it must contain:
-
-```text
-<project>/
-  model/
-    scene/
-      envelope.rad
-      envelope.mat
-      envelope.blk
-    grid/
-      <sensor-grid>.pts   # any .pts name is accepted
-```
-
-`envelope.rad` is the visible scene, `envelope.mat` supplies the normal material modifiers, and `envelope.blk` is the blackened scene used to isolate direct daylight and direct sun.
-
-### Sensor-point source
-
-Annual Simulation supports two compatible routes:
-
-1. Connect `LB Generate Point Grid` to `Sensor points (Pts)`. FlahaGrow writes `model\grid\0.pts` with upward normals.
-2. Leave `Pts` empty when Honeybee ModelToRad has already written a `.pts` file under `model\grid`. FlahaGrow uses that file as `0.pts`, matching the legacy Python workflow.
-
-For a horizontal plant canopy, upward normals (`0 0 1`) are appropriate. For a non-horizontal analysis plane, use the Honeybee-written `.pts` file if its sensor normals must be retained.
-
-## Grasshopper workflow
-
-```text
-Honeybee ModelToRad project + sensor grid + EPW
-                       |
-                       v
-             FlahaGrow / Annual / Annual Simulation
-                       |
-                       +--> batch files and result folder
-                       |
-                       v
-          FlahaGrow / Annual / Load Annual Result  (Build = True)
-                       |
-                       +--> annualRfinal.f32 + annualRfinal.meta.json
-                       |
-          +------------+-------------+
-          v                          v
-Illuminance Point in Time      Illuminance Sensor
-          |                          |
-          v                          v
-  hourly spatial values       8,760 values for one sensor
-```
-
-### 1. Prepare the annual run
-
-Use **FlahaGrow → Annual → Annual Simulation**.
-
-| Input | Meaning |
+| Control | Meaning |
 | --- | --- |
-| `Project` | Honeybee ModelToRad project folder. |
-| `EPW` | Valid EPW weather-file path. |
-| `Sky` | `1` for Tregenza; `4` for the higher Reinhart subdivision. |
-| `Detail` | `low`, `mid`, `high`, `very high`, or a custom Radiance parameter string. |
-| `Run` | Boolean trigger that writes and launches the jobs. |
-| `Pts` | Optional Ladybug sensor points. |
-| `Bin` | Optional Radiance `bin` folder; blank uses automatic detection. |
+| `Run` | A false→true edge launches once. Leave it False after clicking. Holding True does not relaunch. |
+| `Cancel` | A false→true edge cancels this run's recorded batch processes. The PID and UTC start time are verified, so the same build can cancel after Rhino reopens without touching a reused PID. Run=False is not cancellation. |
+| `Existing` | Optional manifest-owned run Folder to reopen without preparing or launching work. Run is ignored while this is connected. |
+| `Keep` | Default False. After all commands succeed, remove large reproducible coefficient, sky, octree, weather, and pipeline files. Keep it True only for a numerical investigation. Final/source-term `.ill` matrices, state, logs, batches, manifest, and snapshot inputs remain. |
+| `Folder` | The retained run folder. Connect it to Progress and Load Annual Result, and keep/save it in the definition. |
 
-With more than ten sensors, the runner makes four jobs: `run_part0.bat` through `run_part3.bat`. Sensor points are split into **contiguous** blocks, preserving their original grid order when results are merged. With ten or fewer sensors it makes one job.
+The component prepares one isolated run for unchanged inputs and retains its Folder in the saved Grasshopper definition. Reopening the definition re-emits that Folder instead of preparing a duplicate run. To make a new run with the same inputs after completion, set Run False, then True. Changing a simulation input and launching also creates a new run. Before launch, the component checks free space on the actual run drive using a conservative run-size reserve; it refuses to start instead of filling the disk.
 
-The runner performs the same three-term Radiance calculation as the legacy Python component:
+Runs created before process-identity recording have no safe cross-session cancellation record. For those legacy runs, use Progress to identify the job and stop only the matching process outside Grasshopper if necessary.
 
-```text
-annualR   = total daylight
-annualRd  = direct daylight through the blackened scene
-annualRs  = direct sun using Reinhart sky subdivisions
-final     = annualR - annualRd + annualRs
-```
+## Load a prior result
 
-Each part writes `annualRfinal_partN.ill` after it completes.
+1. Use the saved Annual Simulation component; its Folder output restores the last run after reopening.
+2. Or supply a known manifest-owned run folder to **Existing**.
+3. Connect that Folder to **Annual Simulation Progress** and **Load Annual Result**.
+4. Attach a Grasshopper Timer to Progress if live updates are needed. It reports the most recent stage (`1/8` through `8/8`) and log-update time for every declared part, plus stage coverage. Coverage is not an ETA: stages have very different durations.
+5. Build the cache only after Progress reports every part Completed. The cache builder requires successful commands and finite, nonnegative final illuminance.
 
-### 2. Monitor progress
+Load Annual Result writes `annualRfinal.f32` and `annualRfinal.meta.json`. It deliberately rejects flat legacy folders and does not create a merged `.ill`. Do not fabricate manifests or completion states for old studies.
 
-Radiance matrix commands do not provide a reliable percent-complete value. They are intentionally quiet while `rfluxmtx` and `rcontrib` are working.
+If Progress reports `Running`, wait; the loader is correctly protecting an incomplete result. If it reports `Invalid`, preserve that run and inspect the reported matrix terms; do not clamp values or treat command success as a result. If it reports `Cancelled` or `Failed`, that run cannot be resumed or cached: set Run False, disconnect Existing, then set Run True to create a new isolated run. The retained `partN.execution-lock` folders are one-shot ownership markers and may remain after a run stops; they do not prove a process is still running.
 
-The generated batch windows now show stages `1/8` through `8/8` and write `annual_progress_partN.log` files. Use **FlahaGrow → Annual → Annual Simulation Progress** with the same result folder to read the latest stage for each part. Attach a Grasshopper Timer when live refresh is wanted.
+## Read results
 
-The calculation is still active when a Radiance process is consuming CPU or when its intermediate `.mtx`, `.ill`, or `.oct` files are changing. Do not build the cache until all parts show `Completed` and every final `.ill` file has a nonzero size.
+- **Illuminance Point in Time:** F32 + Mode=`hour` + zero-based hour index + Run=True returns every sensor for that hour.
+- **Illuminance Sensor:** F32 + Mode=`sensor` + zero-based sensor index + Run=True returns the selected sensor through the year.
+- **Hourly PAR** and **PAR Each Sensor** read an F32 path. **Hourly PPFD** and **PPFD Each Sensor** accept already-extracted numeric lux lists.
+- DLI and annual plots use the supported non-leap-year hourly case: 8,760 values.
 
-### 3. Build the annual cache
+## Limits
 
-Use **FlahaGrow → Annual → Load Annual Result**.
-
-Connect Annual Simulation `Result folder` to `Folder`, then set `Build` True only after the run completes. It reads the Radiance headers safely, merges the part columns in original sensor order, and writes:
-
-```text
-annualRfinal.ill
-annualRfinal.f32
-annualRfinal.meta.json
-```
-
-The metadata is compatible with both legacy Python and compiled components:
-
-```json
-{
-  "sensors": 1716,
-  "hours": 8760,
-  "ncomp": 1,
-  "order": "row-major hours x sensors"
-}
-```
-
-The numbers above are an example from the tested Qatar project, not a requirement for another project.
-
-### 4. Inspect results
-
-Use **Select Date and Hour** to select a non-leap-year date and AM/PM hour. Its `Selected hour index` output is zero-based (`0` to `8759`) and follows the legacy convention used by EPW annual data.
-
-Connect the cache to either illuminance reader:
-
-| Component | Mode | Output |
-| --- | --- | --- |
-| `Illuminance Point in Time` | `hour` | One lux value for every sensor at the selected hour. |
-| `Illuminance Sensor` | `sensor` | 8,760 lux values for one selected sensor. |
-
-For legacy-compatible PPFD reading directly from the cache, use **Hourly PAR** (cache + annual hour index) or **PAR Each Sensor** (cache + sensor index). Their conversion-factor input accepts a number or the legacy presets `electric` (0.015), `sunonly` (0.0205), and `skyonly` (0.0135). The generic **Hourly PPFD** and **PPFD Each Sensor** components remain useful when illuminance values have already been extracted.
-
-Use **Sensor Marker** to create an upper-hemisphere marker at a selected sensor point. Its inputs are point, grid size, and optional `Up` vector.
-
-### 5. Review one sensor across the year
-
-Use **Annual Plot** for any 8,760-value annual series, or **Annual Plot PPFD for Sensor** after `Sensor Annual PPFD`. Both retain the legacy 365-day × 24-hour classified heatmap, threshold buckets, grid modes, hover readout, and PNG export. **Select PIT to PPFD** is the PPFD-named counterpart to the shared date/hour selector and returns the same annual hour index.
-
-## Visualisation guidance
-
-- A point-in-time result is a discrete sensor-grid sample, not a smooth daylight field. Cell-to-cell changes are expected near framing members and direct-sun patches.
-- Disable preview on the upstream point-grid or Sensor Marker component when red crosses obscure the heat map.
-- Set a legend range that matches the selected hour. A fixed range of 20,000–120,000 lux clips lower values to dark blue. For the tested mid-afternoon Qatar example, a range near 0–65,000 lux makes variation more visible.
-- If an older run was made before the contiguous sensor-order correction, rerun Annual Simulation and rebuild the cache before judging the spatial pattern.
-- The direct-sun combination can contain a small number of negative lux values from numerical subtraction. The workflow preserves the legacy result; clamp values to zero only in a downstream visualisation or metric stage if that is the study convention.
-
-## Troubleshooting
-
-| Symptom | Cause | Resolution |
-| --- | --- | --- |
-| `Required annual-simulation file ... model\grid\0.pts` | No sensor grid was found. | Connect `Pts`, or ensure ModelToRad wrote a `.pts` file inside `model\grid`. |
-| Empty `.oct`, `.mtx`, or `.ill` files | Batch process could not resolve Radiance commands. | Leave `Bin` blank for automatic Ladybug Tools discovery, or provide the correct `bin` folder. |
-| `rcalc: cannot find file 'reinsrc.cal'` | Radiance library path was unavailable. | Use the current plugin build; it sets `RAYPATH` to the sibling `lib` directory. |
-| `rcontrib: warning - no light sources found` | The preceding `rcalc` direct-sun source generation failed. | Resolve the `reinsrc.cal` error, then rerun all parts. |
-| `Non-numeric annual-result value ... rmtxop` | A loader attempted to parse Radiance header text. | Use the current Load Annual Result component, which accepts valid Radiance headers. |
-| `Index was outside the bounds of the array` in an illuminance reader | Legacy lowercase metadata was not being read. | Use the current reader; it accepts Python-compatible `sensors`, `hours`, and `ncomp` keys and reports useful bounds errors. |
-| Heat map appears checkerboarded or spatially scrambled | Result order and point-grid order do not match. | Run the current Annual Simulation component, then rebuild the cache. |
-
-## Validation record
-
-The workflow has been exercised with an EPW-driven Qatar greenhouse case containing 1,716 sensors and 8,760 annual hours. The generated cache contained exactly 15,032,160 float values (`1716 × 8760`) and was read successfully by the compatible annual reader contract.
-
-This is a workflow validation, not a claim of experimental calibration. Each study should still document its weather file, greenhouse geometry, materials, sensor plane, luminaire assumptions, spectral conversion factor, and plant targets.
+Annual calculations are CPU and disk intensive. A valid result cache proves declared commands and matrices passed structural checks; it does not prove physical accuracy, convergence, spectral conversion, or an electric/daylight combined study. See [current status](current-status.md) and the gap audit before using results as scientific evidence.

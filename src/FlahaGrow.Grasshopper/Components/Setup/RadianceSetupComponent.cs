@@ -72,7 +72,7 @@ public sealed class RadianceSetupComponent : AsyncSetupComponent<RadianceStatus>
         var selection = result.Installation is null ? "No installation selected" : $"{result.Installation.Source}: {result.Installation.BinFolder}";
         var workflowName = workflow == AnalysisWorkflow.AnnualDaylight ? "Annual daylight" : "Electric-light preparation";
         da.SetData(6, $"{result.State} — {workflowName}. {selection}.\n{string.Join("\n", result.Diagnostics)}");
-        Message = result.State.ToString();
+        SetRevisionMessage(result.State.ToString());
     }
 
     protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)

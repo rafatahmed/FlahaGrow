@@ -5,7 +5,7 @@ using Rhino.Geometry;
 namespace FlahaGrow.Grasshopper.Components;
 
 /// <summary>Creates the legacy upper-hemisphere marker at a selected annual sensor point.</summary>
-public sealed class SensorMarkerComponent : GH_Component
+public sealed class SensorMarkerComponent : FlahaGrowComponent
 {
     public SensorMarkerComponent() : base("Sensor Marker", "Marker", "Creates an upper-hemisphere marker at a sensor point, scaled from the sensor-grid size.", "FlahaGrow", "Annual") { }
     public override Guid ComponentGuid => new("e0c7494d-bf04-4bd1-a9ed-9184fd2b9b53");

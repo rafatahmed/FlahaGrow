@@ -37,6 +37,8 @@ Paths resolves without creating folders. Auto remembers its selected root even w
 
 Workspace creation requires an explicit Initialize action. Held True does not repeat creation; restored actions must observe False before accepting True. `Adopt existing=True` must accompany Initialize to adopt a nonempty unrecognized folder. Existing files are preserved. Radiance deliberately rechecks automatically after reopening.
 
+If Working Directory reports that `flahagrow.project.json` is missing, the selected folder is not yet a FlahaGrow workspace. For a legacy study such as `FlahGrow01`, keep the legacy result files unchanged, set `Adopt existing=True`, and press `Initialize` once to create the workspace metadata. If the folder was selected by mistake, correct or reset Simulation Paths instead. Do not create a manifest file by hand.
+
 Six previous Setup components, including the earlier `(Project)` Paths and Radiance components, are hidden from placement. Their GUIDs and parameter interfaces remain loadable. Existing definitions retain their behavior. Working Directory retains its project-component GUID and ports with a simplified display name. Place the visible trio to use the new workflow; legacy definitions are not automatically rewired.
 
 Typed outputs are transient connections; keep them connected to Setup components so they can be rebuilt on reopening. Filesystem/process work runs asynchronously, obsolete results are discarded, and warm solutions reuse results.

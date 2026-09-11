@@ -11,7 +11,7 @@ internal static class AnnualHourSelection
     internal static string DateTimeLabel = "No date and hour selected.";
 }
 
-public abstract class AnnualHourSelectorComponent : GH_Component
+public abstract class AnnualHourSelectorComponent : FlahaGrowComponent
 {
     protected AnnualHourSelectorComponent(string name, string nick, string description, Guid guid) : base(name, nick, description, "FlahaGrow", "Annual") => Id = guid;
     private Guid Id { get; }

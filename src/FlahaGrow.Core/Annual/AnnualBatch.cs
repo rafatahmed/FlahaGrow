@@ -3,7 +3,7 @@ namespace FlahaGrow.Core.Annual;
 /// <summary>Turns generated commands into a one-shot, fail-fast Windows batch. Pipeline sides run separately.</summary>
 public static class AnnualBatch
 {
-    public static IReadOnlyList<string> Build(IEnumerable<string> commands, Guid runId, int part)
+    public static IReadOnlyList<string> Build(IEnumerable<string> commands, Guid runId, int part, bool keepIntermediates = false)
     {
         var state = $"annual_state_part{part}.txt";
         var log = $"annual_progress_part{part}.log";
@@ -37,7 +37,26 @@ public static class AnnualBatch
                 var intermediate = $"pipeline_part{part}_step{step}.tmp";
                 Add(command[..pipeline] + " > " + intermediate);
                 Add(command[(pipeline + 3)..] + " < " + intermediate);
+                // The consumer has succeeded at this point. Do not retain a large pipe
+                // staging file for every completed annual run. Preserve it on producer
+                // or consumer failure because the cleanup line is never reached then.
+                lines.Add($"if exist \"{intermediate}\" del /q \"{intermediate}\" >nul 2>nul");
+                lines.Add("cmd /d /c exit /b 0");
             }
+        }
+        if (!keepIntermediates)
+        {
+            // These are reproducible from the run snapshot. Keep the final and source-term
+            // .ill matrices for validation/diagnosis, but remove the largest coefficient,
+            // sky, octree and weather intermediates only after every command succeeded.
+            var generated = new[]
+            {
+                $"Weather_{part}.smx", $"Weatherd_{part}.smx", $"WeathersunM*_{part}.smx",
+                $"amodel_{part}.oct", $"bmodel_{part}.oct", $"sunCoefficientsDDS_{part}.oct", $"suns_{part}.rad",
+                $"illum_part{part}.mtx", $"billum_part{part}.mtx", $"cdsDDS_part{part}.mtx"
+            };
+            foreach (var file in generated) lines.Add($"if exist \"{file}\" del /q \"{file}\" >nul 2>nul");
+            lines.Add("cmd /d /c exit /b 0");
         }
         lines.Add($"echo {id} CommandsSucceeded> {state}.tmp");
         lines.Add("if errorlevel 1 goto fg_failed");

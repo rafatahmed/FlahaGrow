@@ -6,7 +6,11 @@ namespace FlahaGrow.Core.Radiance;
 
 public enum ProcessState { Exited, Failed, TimedOut, Cancelled }
 public sealed record ProcessCommand(string Executable, IReadOnlyList<string> Arguments, string WorkingDirectory,
-    IReadOnlyDictionary<string, string> Environment, TimeSpan Timeout, int OutputLimit = 16384);
+    IReadOnlyDictionary<string, string> Environment, TimeSpan Timeout, int OutputLimit = 16384)
+{
+    /// <summary>Optional literal stdin. It is never passed through a command shell.</summary>
+    public string? StandardInput { get; init; }
+}
 public sealed record ProcessReport(ProcessState State, int? ExitCode, string StandardOutput, string StandardError,
     bool OutputTruncated, string? Diagnostic = null);
 public interface IRadianceProcessRunner
@@ -27,7 +31,8 @@ public sealed class RadianceProcessRunner : IRadianceProcessRunner
         var start = new ProcessStartInfo(command.Executable)
         {
             WorkingDirectory = command.WorkingDirectory, UseShellExecute = false, CreateNoWindow = true,
-            RedirectStandardOutput = true, RedirectStandardError = true
+            RedirectStandardOutput = true, RedirectStandardError = true,
+            RedirectStandardInput = command.StandardInput is not null
         };
         foreach (var argument in command.Arguments) start.ArgumentList.Add(argument);
         foreach (var variable in command.Environment) start.Environment[variable.Key] = variable.Value;
@@ -35,6 +40,12 @@ public sealed class RadianceProcessRunner : IRadianceProcessRunner
         try { process.Start(); }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException)
         { return new(ProcessState.Failed, null, "", "", false, ex.Message); }
+
+        if (command.StandardInput is not null)
+        {
+            await process.StandardInput.WriteAsync(command.StandardInput.AsMemory(), cancellationToken).ConfigureAwait(false);
+            process.StandardInput.Close();
+        }
 
         using var timeout = new CancellationTokenSource(command.Timeout);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);

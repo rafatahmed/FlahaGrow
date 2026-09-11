@@ -116,8 +116,8 @@ public sealed class RadianceDiscovery
     {
         var tools = workflow switch
         {
-            AnalysisWorkflow.AnnualDaylight => new[] { "rcontrib", "epw2wea", "gendaymtx", "oconv", "rfluxmtx", "dctimestep", "rmtxop", "cnt", "rcalc" },
-            AnalysisWorkflow.ElectricLighting => new[] { "rcontrib", "ies2rad", "xform", "oconv" },
+            AnalysisWorkflow.AnnualDaylight => new[] { "rcontrib", "gendaymtx", "oconv", "rfluxmtx", "dctimestep", "rmtxop", "cnt", "rcalc" },
+            AnalysisWorkflow.ElectricLighting => new[] { "rcontrib", "ies2rad", "xform", "oconv", "rtrace" },
             _ => throw new ArgumentException("Unknown Radiance workflow.")
         };
         var calculations = workflow == AnalysisWorkflow.AnnualDaylight

@@ -3,7 +3,7 @@ using Grasshopper.Kernel;
 namespace FlahaGrow.Grasshopper.Components;
 
 /// <summary>Creates the legacy FlahaGrow working-directory layout.</summary>
-public sealed class WorkingDirectoryComponent : GH_Component
+public sealed class WorkingDirectoryComponent : FlahaGrowComponent
 {
     private static readonly (string Name, string Nickname, string Folder)[] FolderDefinitions =
     {

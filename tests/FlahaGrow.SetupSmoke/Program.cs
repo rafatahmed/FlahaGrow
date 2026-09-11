@@ -1,5 +1,6 @@
 using System.Reflection;
 using FlahaGrow.Core.Operations;
+using FlahaGrow.Grasshopper;
 using FlahaGrow.Grasshopper.Parameters;
 using FlahaGrow.Grasshopper.Components;
 using FlahaGrow.Grasshopper.Components.Setup;
@@ -45,7 +46,24 @@ var visible = cases.Where(c => c.Component.Exposure != GH_Exposure.hidden).Selec
 if (!visible.SequenceEqual(new[] { "Radiance Status", "Simulation Paths", "Working Directory" })) throw new Exception("Setup toolbar has duplicate or missing components.");
 Console.WriteLine("Nine component checks passed; exactly three visible Setup components. This does not exercise the Rhino canvas or UI scheduler.");
 
-foreach (var (component, inputs, radianceIndex) in new[] { ((GH_Component)new AnnualSimulationComponent(), 9, 7), ((GH_Component)new IesToRadianceComponent(), 11, 10) })
+var tracked = typeof(FlahaGrowAssemblyInfo).Assembly.GetTypes()
+    .Where(type => !type.IsAbstract && typeof(GH_Component).IsAssignableFrom(type))
+    .Select(type => (GH_Component)Activator.CreateInstance(type, type.GetConstructors().Single().GetParameters()
+        .Select(parameter => parameter.HasDefaultValue ? parameter.DefaultValue : throw new InvalidOperationException($"Component constructor requires an explicit value: {type.FullName}"))
+        .ToArray())!)
+    .OrderBy(component => component.ComponentGuid)
+    .ToArray();
+if (tracked.Length == 0 || tracked.Length != ComponentRevisionCatalog.Count || tracked.Any(component => component is not FlahaGrowComponent || !ComponentRevisionCatalog.Contains(component.ComponentGuid)))
+    throw new InvalidOperationException("Every concrete FlahaGrow component must inherit revision tracking and have a catalog entry.");
+var revisionArchive = new GH_Archive();
+var trackedComponent = (FlahaGrowComponent)tracked[0];
+if (!revisionArchive.AppendObject(trackedComponent, "Component")) throw new InvalidOperationException("Revision archive write failed.");
+var restoredTracked = (FlahaGrowComponent)Activator.CreateInstance(tracked[0].GetType())!;
+if (!revisionArchive.ExtractObject(restoredTracked, "Component") || restoredTracked.SavedRevision != trackedComponent.Revision.Version || restoredTracked.NeedsRevisionReview)
+    throw new InvalidOperationException("Component revision was not preserved through a Grasshopper archive.");
+Console.WriteLine($"PASS component revision ledger: {tracked.Length} components registered; archive revision retained.");
+
+foreach (var (component, inputs, radianceIndex) in new[] { ((GH_Component)new AnnualSimulationComponent(), 12, 7), ((GH_Component)new IesToRadianceComponent(), 11, 10) })
 {
     if (component.Params.Input.Count != inputs || component.Params.Input[radianceIndex] is not RadianceParameter || !component.Params.Input[radianceIndex].Optional)
         throw new InvalidOperationException("Verified Radiance environment input mismatch: " + component.Name);

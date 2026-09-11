@@ -9,7 +9,7 @@ using Grasshopper.Kernel;
 namespace FlahaGrow.Grasshopper.Components;
 
 /// <summary>Runs ies2rad and applies the legacy three-channel RGB normalization.</summary>
-public sealed class IesToRadianceComponent : GH_Component
+public sealed class IesToRadianceComponent : FlahaGrowComponent
 {
     public IesToRadianceComponent() : base("IES to Radiance", "IES→Rad", "Converts an IES luminaire to Radiance files and applies normalized RGB channels.", "FlahaGrow", "Electric Light") { }
     public override Guid ComponentGuid => new("e64e15f4-7cee-48b2-a232-2064d3a9e602");
@@ -60,7 +60,6 @@ public sealed class IesToRadianceComponent : GH_Component
         if (!run) { dataAccess.SetData(2, $"Waiting for Run. {command}"); return; }
         try
         {
-            var existingFiles = Directory.EnumerateFiles(outputFolder).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var executable = verifiedEnvironment is null ? FindIes2Rad(radianceBin)
                 : verifiedEnvironment.Executables.GetValueOrDefault("ies2rad");
             if (executable is null) throw new FileNotFoundException("ies2rad.exe was not found. Provide the Radiance bin folder.");
@@ -73,11 +72,11 @@ public sealed class IesToRadianceComponent : GH_Component
             using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start ies2rad.");
             var stdout = process.StandardOutput.ReadToEnd(); var stderr = process.StandardError.ReadToEnd(); process.WaitForExit();
             if (process.ExitCode != 0) throw new InvalidOperationException($"ies2rad failed: {stderr}");
-            var generatedFiles = Directory.EnumerateFiles(outputFolder).Where(path => !existingFiles.Contains(path)).ToList();
-            var radFiles = generatedFiles.Where(path => string.Equals(Path.GetExtension(path), ".rad", StringComparison.OrdinalIgnoreCase)).ToList();
-            var datFiles = generatedFiles.Where(path => string.Equals(Path.GetExtension(path), ".dat", StringComparison.OrdinalIgnoreCase)).ToList();
-            if (radFiles.Count == 0) radFiles = Directory.EnumerateFiles(outputFolder, "*.rad").OrderByDescending(File.GetLastWriteTimeUtc).Take(1).ToList();
-            if (datFiles.Count == 0) datFiles = Directory.EnumerateFiles(outputFolder, "*.dat").OrderByDescending(File.GetLastWriteTimeUtc).Take(1).ToList();
+            // ies2rad's -o name is its output identity. Never substitute an unrelated
+            // newest file from a prior luminaire conversion on rerun.
+            var radFiles = new[] { Path.Combine(outputFolder, outputStem + ".rad") }.Where(File.Exists).ToList();
+            var datFiles = new[] { Path.Combine(outputFolder, outputStem + ".dat") }.Where(File.Exists).ToList();
+            if (radFiles.Count == 0) throw new FileNotFoundException($"ies2rad completed but did not produce the expected '{outputStem}.rad' output.");
             var datPath = File.Exists(dat) ? Path.GetFullPath(dat).Replace('\\', '/') : datFiles.FirstOrDefault()?.Replace('\\', '/');
             foreach (var radFile in radFiles) RewriteRad(radFile, nr, ng, nb, datPath);
             dataAccess.SetDataList(0, radFiles); dataAccess.SetDataList(1, datFiles);

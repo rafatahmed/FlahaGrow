@@ -1,60 +1,35 @@
-# Current implementation, installation and validation status
+# Current implementation and release status
 
-Updated 2026-09-10. This is the current status index; dated audits retain their original evidence and explicitly dated follow-ups.
+Updated 2026-09-11. This is the source-backed status index. The code and automated validation are authoritative; dated audits preserve evidence and do not overrule this page.
 
-## Documentation map
+## What is implemented and checked
 
-| Document | Use |
-| --- | --- |
-| [Migration and wiring](component-migration.md) | Visible/hidden identities, supported connections and old-result policy. |
-| [25-script I/O audit](component-io-audit-2026-09-09.md) | Per-script ports, defaults, behavioral differences and IO findings. |
-| [Annual run contract](annual-run-isolation.md) | Ownership, states, matrix/cache validation and lifecycle limits. |
-| [Live-result audit](annual-result-audit-2026-09-10.md) | Cache parity, negative-value diagnosis, numerical probes and installed-version evidence. |
-| [Repository tracker](repository-audit-2026-09-07.md) | Original F findings and implementation history. |
-| [Setup consistency](setup-consistency-review-2026-09-07.md) | C findings and producer/consumer connections. |
-| [Setup guide](setup-components.md) | Visible Setup operation and installation requirements. |
+- Annual daylight creates isolated manifest-owned runs, persists the last run, supports `Existing`, records stages, rejects invalid/non-finite illuminance, validates cache provenance, and records process identity for cross-session cancellation.
+- Annual daylight converts strict 8,760-record non-leap EPW input to an inspectable WEA and uses a 146-column ground-plus-sky receiver basis. A one-sensor 8,760-hour installed-Radiance fixture completed with finite, nonnegative values.
+- Electric Annual Simulation performs one full-output `oconv`/`rtrace` calculation in the background, snapshots one validated 8,760-hour dimming schedule, and writes a manifest-owned annual illuminance matrix. A real Radiance 5.4 one-sensor reference produced 624.5204 lux. Combine Annual Lighting validates matching completed runs and creates a separately provenance-owned daylight-plus-electric result for the normal cache/readers.
+- Component revisions are persisted per node. The canvas shows version and update time; a saved node reports a review marker when the installed component version changes.
+- Selector state, deterministic IES conversion, DLI schedule validation, and provenance-bound direct readers are implemented and covered by automated checks.
 
-## Implemented and tested
+`dotnet build FlahaGrow.sln --configuration Release --no-restore -m:1`, 165 Core tests, and `tools/Test-SetupComponents.ps1 -NoRestore` passed on 2026-09-11. The smoke check verifies all 40 concrete components have revision entries and archive persistence. It is not Rhino host acceptance.
 
-- C01–C04: optional checked Radiance environment, analysis/run ownership, consistent luminaire folders and library-root support.
-- F01–F04: sky basis consistency, isolated declared runs, strict matrix/cache validation and checked command failures.
-- F05/C03 and F07: luminaire folder agreement and invariant numeric I/O. F12: snapshot weather copying avoids the original same-file copy error.
-- F10: packaging build-exit guard (source fix; forced build-failure injection was not repeated).
-- September 10: actual Radiance blank-provenance parsing, nonnegative final-illuminance validation, negative/nonfinite selected legacy-cache rejection, numeric/named quality agreement, direct-stage bounce settings, trimmed reader modes and checked 64-bit hour seeks (F11 source fix; multi-gigabyte cache stress validation remains pending).
-- C06 documentation mappings and wiring are reconciled. Exact migration in saved Python definitions remains unverified.
+## Release gates still open
 
-## Open work
+| Priority | Gate | What is required to close it |
+| --- | --- | --- |
+| Closed (observed) | Fresh Rhino annual daylight acceptance | The supplied canvas completed a 980-sensor, 8,760-hour, four-part manifest-owned run at `FlahGrow02`; all parts, cache metadata, and reader wiring were observed. See [Rhino acceptance](rhino-acceptance-2026-09-11.md). The old FlahGrow01 run remains invalid and cannot be reused. |
+| High | Rhino lifecycle acceptance | Verify canvas revision labels, save/reopen, `Existing`, selector persistence, real Timer refresh, and cancel after restarting Rhino while a job is running. |
+| High | Annual electric integration | Exercise Electric Annual and Combine Annual Lighting with a real exported luminaire and a real Rhino definition. The source-level combination contract is implemented and tested. |
+| High | Spectral parity | Compare custom CSV conversion against a locked legacy/reference case, then correct any wavelength, weighting, and export differences. |
+| Medium | Calendar convention reference | Compare EPW/WEA hour semantics and a known annual reference result; leap years are intentionally rejected today. |
+| Medium | Large-cache stress | Run a multi-gigabyte cache performance/seek test on a drive with sufficient free space. |
 
-| Area | Remaining work |
-| --- | --- |
-| Numerical validity | The old FlahGrow01 study has 7,584 negative values. Cache matches every final value; caching is not the cause. Fresh full-year and convergence/reference checks remain required. |
-| IO03/IO04 | Custom spectral CSV calculation differs from Python; PAR wavelength mask/weighting, CSV handling, export and selection behavior need correction. |
-| F08 / IO02 | Complete option/value allowlist and independent custom-quality input design. Shell metacharacter rejection is already implemented. |
-| IO07 | IES rerun file ownership and Radiance/DAT rewrite correctness. Shared folder consistency does not close these issues. |
-| F06 / F09 / C05 | Glazing counted-block parser; selector persistence; annual trigger/process and UI lifecycle. |
-| IO06 / IO08 / IO10 | Legacy output exposure, whole-tree ordering, missing-file diagnostics and leap-year/hour conventions. |
-| IO11 / IO12 | Explicit Honeybee export/reference study, electric simulation/combination, DLI timestep and power-schedule semantics. |
-| C06 verification | Original saved-definition port/access migration and Rhino save/reopen checks. |
+## Installed plugin state
 
-Do not treat structurally valid, nonnegative results as scientific certification. Negative results are rejected, never silently clamped. The old completed study is preserved for diagnosis.
-
-## Installed release
-
-With the user's explicit approval and Rhino closed, replaced both files in `C:\Users\rafat\AppData\Roaming\Grasshopper\Libraries`:
+The installed plugin is the matching tested Release build, including Electric Annual Simulation and Combine Annual Lighting. Rhino was confirmed closed before replacement; the preceding matched pair is retained in `FlahaGrow.backup-20260911-2120`. Its hashes are:
 
 | File | SHA-256 |
 | --- | --- |
-| FlahaGrow.gha | `652B8C4A3A9AAAE5BE578FE238BD85CCABA993E6BEB39BBF50D7BC0E8D9C848E` |
-| FlahaGrow.Core.dll | `7A57DE9F3FC270838F05AB9A1CBC5B2A35FAA5180AB168CC936278A808A527AE` |
+| `FlahaGrow.gha` | `9E6E6456E484BB6651319D49A778E252073EE82D24F07EF5D0F555F4ECE62BF0` |
+| `FlahaGrow.Core.dll` | `BED447B708ECA69A07C49FBAFF737C153DA8C86CCBDEA9D6549915FBA3144D43` |
 
-Both installed hashes match the staged, tested package. Product version is `0.1.1-audit.20260910+4f28a3391778d8880763f2725c70deac983c895a`. The suffix records the Git HEAD at build time; the binaries also include the subsequent working-tree fixes committed with this documentation. Use hashes to identify this exact build; it is not a clean build of 4f28a33 alone.
-
-Previous assemblies are backed up under ignored `artifacts/plugin-backup-20260910/`. Existing installed libraries and the Downloads study were unchanged. The local package is `artifacts/yak-staging/flahagrow-0.1.1-audit.20260910-rh8_33-win.yak`, SHA-256 `14D40EA1F4B784A09004E0A4FA3C15ADD329ACC58D9A00D1A073C6FEDDFB4160`. Binaries/backups/studies are not committed to Git.
-
-Installation is complete; post-restart Rhino loading and the next full study have not yet been observed. Confirm the appended Annual Simulation Radiance/Analysis inputs after reopening. Use a new manifest-owned run; do not fabricate manifests for old results.
-
-## Validation evidence
-
-156 Core tests passed. Expanded component/archive/integration checks and real Ladybug rmtxop nested-header/failure checks passed; builds had zero warnings/errors. The package contents and installed hashes were verified. The full source/cache comparison found zero mismatches across 8,584,800 values. Original study files were read only.
-
-These checks do not exercise every Rhino canvas lifecycle, prove spectral/annual physical accuracy, or certify large-cache performance. See each dated audit for exact probe boundaries.
+The remaining release gates are host/numerical acceptance gates, not a source-versus-installed-plugin mismatch. See [component revisions](component-revisions.md), [annual workflow](annual-workflow.md), [Ladybug/Honeybee boundary](ladybug-honeybee-integration.md), and the [delivery gate](plugin-gap-audit-2026-09-11.md).

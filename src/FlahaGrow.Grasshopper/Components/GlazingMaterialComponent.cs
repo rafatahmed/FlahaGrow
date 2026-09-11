@@ -1,14 +1,16 @@
 using System.Reflection;
 using System.Globalization;
 using System.Windows.Forms;
+using GH_IO.Serialization;
 using FlahaGrow.Core.Projects;
 using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components;
 
 /// <summary>Selects a Radiance glazing modifier from the bundled or supplied glazing library.</summary>
-public sealed class GlazingMaterialComponent : GH_Component
+public sealed class GlazingMaterialComponent : FlahaGrowComponent
 {
+    private string? selected;
     public GlazingMaterialComponent()
         : base("Glazing Material", "Glazing Mat", "Selects a Radiance glazing modifier and reports its visual properties.", "FlahaGrow", "Materials")
     {
@@ -32,7 +34,7 @@ public sealed class GlazingMaterialComponent : GH_Component
         var folder = string.Empty;
         dataAccess.GetData(0, ref run);
         dataAccess.GetData(1, ref folder);
-        if (!run) return;
+        if (!run) { if (!string.IsNullOrWhiteSpace(selected)) dataAccess.SetData(0, selected); return; }
 
         try
         {
@@ -57,8 +59,19 @@ public sealed class GlazingMaterialComponent : GH_Component
         form.AcceptButton = select;
         if (form.ShowDialog() == DialogResult.OK && grid.SelectedRows.Count > 0)
         {
-            dataAccess.SetData(0, grid.SelectedRows[0].Tag as string);
+            selected = grid.SelectedRows[0].Tag as string;
+            dataAccess.SetData(0, selected);
         }
+    }
+    public override bool Write(GH_IWriter writer)
+    {
+        if (!string.IsNullOrWhiteSpace(selected)) writer.SetString("Selected", selected);
+        return base.Write(writer);
+    }
+    public override bool Read(GH_IReader reader)
+    {
+        selected = reader.ItemExists("Selected") ? reader.GetString("Selected") : null;
+        return base.Read(reader);
     }
 
     private static GlazingRow Parse(string path)

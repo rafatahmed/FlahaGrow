@@ -99,6 +99,8 @@ public sealed class WorkspaceService
     {
         var path = Path.Combine(root, ProjectManifest.FileName);
         CheckPath(path);
+        if (!File.Exists(path))
+            throw new InvalidDataException($"No FlahaGrow workspace manifest exists at '{path}'. Press Initialize to create a workspace; enable Adopt only when preserving existing files.");
         return ProjectManifestCodec.Read(reader.ReadManifest(path));
     }
 

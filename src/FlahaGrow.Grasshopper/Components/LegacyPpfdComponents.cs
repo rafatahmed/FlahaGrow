@@ -5,7 +5,7 @@ using Rhino.Geometry;
 namespace FlahaGrow.Grasshopper.Components;
 
 /// <summary>Legacy-compatible cache-native point-in-time PPFD reader.</summary>
-public sealed class HourlyParComponent : GH_Component
+public sealed class HourlyParComponent : FlahaGrowComponent
 {
     public HourlyParComponent() : base("Hourly PAR", "Hourly PAR", "Reads one annual-cache hour and converts every sensor value from lux to PPFD.", "FlahaGrow", "PPFD") { }
     public override Guid ComponentGuid => new("3bb97076-25e8-4623-84fa-1245717b5a58");
@@ -20,7 +20,7 @@ public sealed class HourlyParComponent : GH_Component
 }
 
 /// <summary>Legacy-compatible cache-native annual PPFD reader with optional sensor marker.</summary>
-public sealed class ParEachSensorComponent : GH_Component
+public sealed class ParEachSensorComponent : FlahaGrowComponent
 {
     public ParEachSensorComponent() : base("PAR Each Sensor", "Sensor PAR", "Reads one sensor's annual cache column, converts it to PPFD, and can return its marker.", "FlahaGrow", "PPFD") { }
     public override Guid ComponentGuid => new("c1296cd8-151c-46e0-a5a0-0d2e8f54d9f6");

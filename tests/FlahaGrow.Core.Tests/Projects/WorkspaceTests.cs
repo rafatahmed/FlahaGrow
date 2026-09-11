@@ -46,7 +46,8 @@ public sealed class WorkspaceTests : IDisposable
     [Fact]
     public void OpenMissingWorkspaceDoesNotCreateAnything()
     {
-        Assert.ThrowsAny<IOException>(() => service.Open(Paths));
+        var error = Assert.Throws<InvalidDataException>(() => service.Open(Paths));
+        Assert.Contains("Press Initialize", error.Message);
         Assert.False(Directory.Exists(Root));
     }
 

@@ -59,7 +59,7 @@ public sealed class ProjectRadianceComponent : AsyncSetupComponent<RadianceCheck
             da.SetData(3, result.Status.Installation?.BinFolder); da.SetData(4, result.Status.Installation?.LibraryFolder);
             da.SetDataList(5, result.Discovery.Candidates.Select(candidate => candidate.BinFolder));
             da.SetData(6, result.Status.State + ": " + string.Join("; ", result.Status.Diagnostics));
-            Message = result.Status.State.ToString();
+            SetRevisionMessage(result.Status.State.ToString());
         }
         else da.SetData(6, Status);
     }

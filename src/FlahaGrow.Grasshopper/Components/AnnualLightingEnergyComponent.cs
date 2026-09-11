@@ -5,7 +5,7 @@ namespace FlahaGrow.Grasshopper.Components;
 /// <summary>
 /// Converts a power schedule to energy consumption.
 /// </summary>
-public sealed class AnnualLightingEnergyComponent : GH_Component
+public sealed class AnnualLightingEnergyComponent : FlahaGrowComponent
 {
     public AnnualLightingEnergyComponent()
         : base("Lighting Energy", "Energy", "Calculates lighting energy use from a power schedule.", "FlahaGrow", "Metrics")
