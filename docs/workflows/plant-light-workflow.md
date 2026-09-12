@@ -210,3 +210,33 @@ and run `./tools/Test-SetupComponents.ps1 -NoRestore` for component compatibilit
 Then verify the real example in Rhino using one matched sensor/day:
 sum its 24 PPFD values × 0.0036 and compare with DLI for Day. Keep profile, run,
 sensor and interval identical and use raw values, not heatmap colors.
+
+## Built-in spectral selection
+
+For all timing and sensor connections, use the [timing and sensor contract](timing-and-sensor-contract.md).
+Hour Index now supplies Hour, Day, Date (display only), and Alignment; do not wire Date into Context.
+
+For routine reference selection, connect a Grasshopper **Button → Spectral Profile.Select**.
+Choose a row in the table, read its provenance and limitations, tick the acknowledgment,
+and click **Use selected profile**. No CSV, basis input or manual factor is needed.
+The component uses the bundled audited factor; it does not rerun Radiance or import a file.
+Closing without accepting preserves the previous selection. A new component emits no
+profile until a selection is accepted. The profile ID is saved with the definition;
+a library revision change requires reselection.
+
+| Input | Connect from |
+|---|---|
+| Plant Light Context.F32 | Load Annual Result.F32 |
+| Plant Light Context.Profile | Spectral Profile.Profile |
+| Each PPFD/DLI reader.Context | Plant Light Context.Context, or Combine Plant Light.Context |
+| Combine Plant Light.Sources | Separate source-specific Plant Light Context.Context outputs |
+
+Do not pass Factor separately to the typed readers. Each reader operates independently
+on its Context. Use separate source contexts before mixing daylight and electric light.
+
+The previous five-input Spectral Profile is now **Custom Spectral Profile**; its GUID,
+input order and outputs are unchanged. Use it for a measured custom CSV or explicit
+numeric assumption. Older instructions below describing CSV/Factor inputs refer to
+this custom component. The new one-input selector has a new GUID and does not replace
+saved custom-profile wiring. The selector addition has not yet been deployed or
+visually accepted in Rhino; the earlier deployment record describes the previous build.

@@ -14,6 +14,7 @@ public abstract class FlahaGrowComponent : GH_Component
         : base(name, nickname, description, category, subCategory) { }
 
     public ComponentRevision Revision => ComponentRevisionCatalog.Get(ComponentGuid);
+    protected override System.Drawing.Bitmap Icon => ComponentIcons.ForComponent(Name)!;
     public string? SavedRevision => savedRevision;
     public bool NeedsRevisionReview => savedRevision is not null && !string.Equals(savedRevision, Revision.Version, StringComparison.Ordinal);
 
@@ -87,13 +88,14 @@ public static class ComponentRevisionCatalog
     private static readonly ComponentRevision PlantLightRevision = new("1.2.0", new DateTimeOffset(2026, 9, 12, 0, 0, 0, TimeSpan.FromHours(3)), "Adds explicit profile/context readers and shared finite-value photon integration; existing ports and defaults retained. Spectral CSV uses CIE weighting and trapezoidal integration.");
     private static readonly IReadOnlyDictionary<Guid, ComponentRevision> Entries = new Dictionary<Guid, ComponentRevision>
     {
-        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa410")] = PlantLightRevision,
-        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa411")] = PlantLightRevision,
-        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa412")] = PlantLightRevision,
-        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa413")] = PlantLightRevision,
-        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa414")] = PlantLightRevision,
-        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa415")] = PlantLightRevision,
-        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa416")] = PlantLightRevision,
+        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa410")] = new("1.2.1", new DateTimeOffset(2026, 9, 12, 14, 0, 0, TimeSpan.FromHours(3)), "Renamed Custom Spectral Profile; existing GUID and five inputs retained."),
+        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa417")] = new("1.0.1", new DateTimeOffset(2026, 9, 12, 15, 0, 0, TimeSpan.FromHours(3)), "Acknowledged research limitations remain in Status without repeated runtime warning; readable wavelength coverage."),
+        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa411")] = new("1.3.0", new DateTimeOffset(2026, 9, 12, 15, 0, 0, TimeSpan.FromHours(3)), "Strict Hour Index alignment contract, sensor-order guidance; acknowledged assumptions retained in Status."),
+        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa412")] = new("1.3.0", new DateTimeOffset(2026, 9, 12, 15, 0, 0, TimeSpan.FromHours(3)), "Strict Hour Index alignment contract, sensor-order guidance; acknowledged assumptions retained in Status."),
+        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa413")] = new("1.3.0", new DateTimeOffset(2026, 9, 12, 15, 0, 0, TimeSpan.FromHours(3)), "Strict Hour Index alignment contract, sensor-order guidance; acknowledged assumptions retained in Status."),
+        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa414")] = new("1.3.0", new DateTimeOffset(2026, 9, 12, 15, 0, 0, TimeSpan.FromHours(3)), "Strict Hour Index alignment contract, sensor-order guidance; acknowledged assumptions retained in Status."),
+        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa415")] = new("1.3.0", new DateTimeOffset(2026, 9, 12, 15, 0, 0, TimeSpan.FromHours(3)), "Strict Hour Index alignment contract, sensor-order guidance; acknowledged assumptions retained in Status."),
+        [new("a9c4973b-acb7-45be-96ee-a6d8a35fa416")] = new("1.3.0", new DateTimeOffset(2026, 9, 12, 15, 0, 0, TimeSpan.FromHours(3)), "Strict Hour Index alignment contract, sensor-order guidance; acknowledged assumptions retained in Status."),
         [new("f32f1cbd-04b5-42ed-9fdf-c194851011b2")] = PlantLightRevision,
         [new("d4f97934-9fd5-4d9c-a6e0-b550d0c9cedf")] = PlantLightRevision,
         [new("a77d7b17-274a-444b-af3d-063144dcb3fa")] = PlantLightRevision,
@@ -122,8 +124,8 @@ public static class ComponentRevisionCatalog
         [new("0bc7a4db-8702-4e8d-a5bc-dd648ba3ec6e")] = PlantLightRevision,
         [new("f6f1d5d4-9a1a-4de7-a090-6299c94e0060")] = Baseline,
         [new("272aa83d-9898-460d-8cbd-7f49374153ba")] = Baseline,
-        [new("31f97f51-692b-43b1-9b45-47f1d4ef2d48")] = Baseline,
-        [new("66090f6d-e92c-4dde-b72f-d85d033ae1f6")] = Baseline,
+        [new("31f97f51-692b-43b1-9b45-47f1d4ef2d48")] = new("1.3.0", new DateTimeOffset(2026, 9, 12, 15, 0, 0, TimeSpan.FromHours(3)), "Hour/Day/Alignment outputs, interval-start correction, independent persisted selection and edge-triggered picker."),
+        [new("66090f6d-e92c-4dde-b72f-d85d033ae1f6")] = new("1.3.0", new DateTimeOffset(2026, 9, 12, 15, 0, 0, TimeSpan.FromHours(3)), "Shares corrected Hour Index timing contract; review old hour selections."),
         [new("e0c7494d-bf04-4bd1-a9ed-9184fd2b9b53")] = Baseline,
         [new("37c57f57-1be3-4eaa-aa88-12a20f0172ef")] = Baseline,
         [new("71ce89f2-1439-4730-915f-07436692926c")] = Baseline,

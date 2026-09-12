@@ -7,9 +7,9 @@ using Grasshopper.Kernel.Types;
 
 namespace FlahaGrow.Grasshopper.Components;
 
-public sealed class SpectralProfileComponent : FlahaGrowComponent
+public sealed class CustomSpectralProfileComponent : FlahaGrowComponent
 {
-    public SpectralProfileComponent() : base("Spectral Profile", "Profile", "Binds an explicit factor or spectral CSV to a named, traceable PAR assumption. No universal default.", "FlahaGrow", "02 Spectral") { }
+    public CustomSpectralProfileComponent() : base("Custom Spectral Profile", "Custom Profile", "Advanced custom factor/CSV entry. For bundled references use Spectral Profile and a Button.", "FlahaGrow", "02 Spectral") { }
     public override Guid ComponentGuid => new("a9c4973b-acb7-45be-96ee-a6d8a35fa410");
     protected override void RegisterInputParams(GH_InputParamManager p)
     {
@@ -59,8 +59,8 @@ public sealed class PlantLightContextComponent : FlahaGrowComponent
     protected override void RegisterInputParams(GH_InputParamManager p)
     {
         p.AddTextParameter("Result cache", "F32", "F32 output of Load Annual Result, before mixed-lux composition.", GH_ParamAccess.item);
-        p.AddParameter(new SpectralProfileParameter(), "Spectral Profile", "Profile", "One explicit source-specific assumption.", GH_ParamAccess.item);
-        p.AddTextParameter("Time-axis declaration", "Time", "Required for mixed sources: identical calendar, timezone/local standard time and interval convention. Declaration, not automatically verified metadata.", GH_ParamAccess.item); p[2].Optional = true;
+        p.AddParameter(new SpectralProfileParameter(), "Spectral Profile", "Profile", "Connect Spectral Profile → Profile (or Custom Spectral Profile → Profile). Use the spectrum of this source.", GH_ParamAccess.item);
+        p.AddTextParameter("Annual alignment declaration", "Alignment", "Optional for one source. Connect Hour Index (Select Date and Hour) → Alignment for mixing. NOT Hour, Day or Date. Set the actual simulation UTC offset in Hour Index; verify calendars/schedules match.", GH_ParamAccess.item); p[2].Optional = true;
     }
     protected override void RegisterOutputParams(GH_OutputParamManager p)
     {
@@ -75,9 +75,8 @@ public sealed class PlantLightContextComponent : FlahaGrowComponent
         try
         {
             var context = new PlantLightContext(AnnualIlluminanceResult.Open(cache), profile.Value, time);
-            da.SetData(0, new PlantLightContextGoo(context)); da.SetData(1, context.Description);
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Lux-derived estimate. " + profile.Value.Warning
-                + (time.Length == 0 ? " Calendar unspecified: indices only; mixed-source combination disabled." : " Time alignment is user-declared."));
+            da.SetData(0, new PlantLightContextGoo(context)); da.SetData(1, context.Description + "; Assumptions: " + profile.Value.Warning);
+            SetRevisionMessage("Annual context · select in readers");
         }
         catch (Exception ex) { da.SetData(1, ex.Message); AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
     }
@@ -87,7 +86,7 @@ public sealed class CombinePlantLightComponent : FlahaGrowComponent
 {
     public CombinePlantLightComponent() : base("Combine Plant Light", "Mix Plant Light", "Combines source contexts: convert each source separately, then add photons. Does not create a combined lux cache.", "FlahaGrow", "05 PPFD") { }
     public override Guid ComponentGuid => new("a9c4973b-acb7-45be-96ee-a6d8a35fa412");
-    protected override void RegisterInputParams(GH_InputParamManager p) => p.AddParameter(new PlantLightContextParameter(), "Source contexts", "Sources", "At least two independent, time-aligned source contexts with matching sensors.", GH_ParamAccess.list);
+    protected override void RegisterInputParams(GH_InputParamManager p) => p.AddParameter(new PlantLightContextParameter(), "Source contexts", "Sources", "Connect two or more Plant Light Context → Context outputs. Sensors and declared time axes must match.", GH_ParamAccess.list);
     protected override void RegisterOutputParams(GH_OutputParamManager p)
     {
         p.AddParameter(new PlantLightContextParameter(), "Combined context", "Context", "Connect to the same PPFD/DLI readers.", GH_ParamAccess.item);
@@ -101,7 +100,7 @@ public sealed class CombinePlantLightComponent : FlahaGrowComponent
             if (contexts.Any(c => !c.IsValid)) throw new ArgumentException("Invalid source context.");
             var result = PlantLightContext.Combine(contexts.Select(c => c.Value).ToArray());
             da.SetData(0, new PlantLightContextGoo(result)); da.SetData(1, result.Description);
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Lux-derived estimate; time alignment is user-declared, not verified by existing run manifests.");
+            SetRevisionMessage("User-declared alignment");
         }
         catch (Exception ex) { da.SetData(1, ex.Message); AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
     }
@@ -115,12 +114,14 @@ public abstract class PlantLightReaderComponent : FlahaGrowComponent
     { this.dli = dli; this.sensor = sensor; }
     protected override void RegisterInputParams(GH_InputParamManager p)
     {
-        p.AddParameter(new PlantLightContextParameter(), "Plant Light Context", "Context", "Single or source-specific mixed context.", GH_ParamAccess.item);
+        p.AddParameter(new PlantLightContextParameter(), "Plant Light Context", "Context", "Connect Plant Light Context → Context or Combine Plant Light → Context. No separate factor needed.", GH_ParamAccess.item);
         var isSensor = this is AnnualPpfdAtSensorComponent or AnnualDliAtSensorComponent;
         var isDay = this is DliForDayComponent;
         p.AddIntegerParameter(isSensor ? "Sensor index" : isDay ? "Day index" : "Hour index",
             isSensor ? "Sensor" : isDay ? "Day" : "Hour",
-            isSensor ? "Zero-based sensor index in manifest order." : isDay ? "Zero-based day 0–364. Not an hour or fractional day." : "Zero-based annual hourly interval 0–8759.", GH_ParamAccess.item);
+            isSensor ? "Integer slider: 0 to sensor count minus 1. Index into the exact saved simulation sensor order (0 = first point), not a Point or grid label. GenPts order matches only if exported unchanged."
+            : isDay ? "Connect Select Date and Hour → Day. Zero-based 0–364; Jan 1 = 0. Do not connect Hour or Date."
+            : "Connect Select Date and Hour → Hour. Zero-based 0–8759; Jan 1 00:00–01:00 = 0.", GH_ParamAccess.item);
     }
     protected override void RegisterOutputParams(GH_OutputParamManager p)
     {
@@ -151,7 +152,7 @@ public abstract class PlantLightReaderComponent : FlahaGrowComponent
             }
             else values = dli ? c.DliAtSensor(index) : sensor ? c.PpfdAtSensor(index) : c.PpfdAtHour(index);
             da.SetDataList(0, values);
-            var selection = sensor ? $"sensor {index}" : dli ? $"day index {index} (day-of-year {index + 1})"
+            var selection = sensor ? $"sensor index {index} = saved sensor row {index + 1} of {c.Sensors}" : dli ? $"day index {index} (day-of-year {index + 1})"
                 : $"hour interval {index}; day index {index / 24}; representative local-standard hour {index % 24 + .5:0.0}";
             da.SetData(1, $"{selection}; {values.Length} {(dli ? "mol/m²/day" : "µmol/m²/s")} values; {c.Description}");
         }

@@ -1,6 +1,10 @@
 # Spectral profile library specification
 
-Proposed contract, not implemented plugin behavior. Scientific justification
+Target contract; not all fields and release gates are implemented. The current
+Spectral Profile table exposes 18 bundled audited references with explicit
+assumption acknowledgment, not production-validated fixture records. See the
+[implemented selector workflow](../../workflows/plant-light-workflow.md#built-in-spectral-selection).
+Scientific justification
 and sources are in the [research report](radiance-ppfd-dli-research.md).
 First-release scope: daylight, white LEDs and horticultural LEDs.
 

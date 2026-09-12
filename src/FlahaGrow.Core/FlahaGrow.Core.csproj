@@ -3,6 +3,7 @@
     <TargetFramework>net7.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="../../docs/research/plant-light/profile-audit.json" LogicalName="FlahaGrow.PlantLight.Library.json" />
     <EmbeddedResource Include="../../docs/research/plant-light/data/cie/CIE_sle_photopic.csv" LogicalName="FlahaGrow.CIE.Vlambda.csv" />
     <EmbeddedResource Include="../../docs/research/plant-light/data/cie/CIE_sle_photopic.csv_metadata.json" LogicalName="FlahaGrow.CIE.Vlambda.metadata.json" />
     <None Include="PlantLight/NOTICE.md" CopyToOutputDirectory="PreserveNewest" />

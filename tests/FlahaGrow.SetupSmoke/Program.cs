@@ -56,6 +56,24 @@ var tracked = typeof(FlahaGrowAssemblyInfo).Assembly.GetTypes()
 if (tracked.Length == 0 || tracked.Length != ComponentRevisionCatalog.Count || tracked.Any(component => component is not FlahaGrowComponent || !ComponentRevisionCatalog.Contains(component.ComponentGuid)))
     throw new InvalidOperationException("Every concrete FlahaGrow component must inherit revision tracking and have a catalog entry.");
 var revisionArchive = new GH_Archive();
+var embeddedIcons = typeof(FlahaGrowAssemblyInfo).Assembly.GetManifestResourceNames().Where(n => n.StartsWith("FlahaGrow.Icons.", StringComparison.Ordinal)).ToArray();
+if (embeddedIcons.Length != 33 || embeddedIcons.Any(n => n.Contains("System-18"))) throw new Exception("Unexpected icon inventory.");
+foreach (var resource in embeddedIcons)
+{
+    var name = resource["FlahaGrow.Icons.".Length..^4];
+    var bitmap = ComponentIcons.ForComponent(name) ?? throw new Exception("Missing icon: " + name);
+    if (bitmap.Width != 24 || bitmap.Height != 24) throw new Exception("Wrong icon dimensions: " + name);
+    if (name != "FlahaGrow_Icon_logo" && !tracked.Any(c => c.Name == name)) throw new Exception("Unmapped named icon: " + name);
+    if (!ReferenceEquals(bitmap, ComponentIcons.ForComponent(name))) throw new Exception("Icon is not cached.");
+}
+if (ComponentIcons.ForComponent("Unassigned component") is not null) throw new Exception("Unknown component received unrelated artwork.");
+foreach (var component in tracked)
+{
+    var expected = ComponentIcons.ForComponent(component.Name);
+    var actual = typeof(FlahaGrowComponent).GetProperty("Icon", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(component);
+    if (!ReferenceEquals(expected, actual)) throw new Exception("Component icon mapping mismatch: " + component.Name);
+}
+Console.WriteLine("PASS 32 named component icons and plugin logo: embedded mapping, 24px rendering, shared cache and unmapped fallback.");
 var trackedComponent = (FlahaGrowComponent)tracked[0];
 if (!revisionArchive.AppendObject(trackedComponent, "Component")) throw new InvalidOperationException("Revision archive write failed.");
 var restoredTracked = (FlahaGrowComponent)Activator.CreateInstance(tracked[0].GetType())!;
@@ -65,7 +83,8 @@ Console.WriteLine($"PASS component revision ledger: {tracked.Length} components 
 
 var plantCases = new (GH_Component Component, int Inputs, int Outputs)[]
 {
-    (new SpectralProfileComponent(), 5, 3), (new PlantLightContextComponent(), 3, 2),
+    (new SelectHourIndexComponent(), 2, 4), (new SelectPpfdHourComponent(), 2, 4),
+    (new CustomSpectralProfileComponent(), 5, 3), (new SpectralProfileComponent(), 1, 3), (new PlantLightContextComponent(), 3, 2),
     (new CombinePlantLightComponent(), 1, 2), (new PpfdAtHourComponent(), 2, 2),
     (new AnnualPpfdAtSensorComponent(), 2, 2), (new DliForDayComponent(), 2, 3),
     (new AnnualDliAtSensorComponent(), 2, 2),
@@ -91,11 +110,28 @@ foreach (var (component, inputCount, outputCount) in plantCases)
 if (new DliForDayComponent().Params.Output[2].Access != GH_ParamAccess.tree
     || new PpfdAtHourComponent().Params.Input[0] is not PlantLightContextParameter)
     throw new Exception("Plant-light typed context/tree contract failed.");
-var explicitProfile = new SpectralProfileComponent();
+var explicitProfile = new CustomSpectralProfileComponent();
+var timing = new SelectHourIndexComponent();
+typeof(AnnualHourSelectorComponent).GetField("selectedIndex", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(timing, (int?)6109);
+var timingArchive = new GH_Archive(); timingArchive.AppendObject(timing, "Component");
+var timingCopy = new SelectHourIndexComponent(); timingArchive.ExtractObject(timingCopy, "Component");
+var timingData = TestData.Create(new() { [0] = true, [1] = 180 });
+SolveUntil(timingCopy, timingData, () => timingData.Outputs.ContainsKey(0));
+if ((int)timingData.Outputs[0]! != 6109 || (int)timingData.Outputs[2]! != 254
+    || (string)timingData.Outputs[3]! != "annual-365;UTC+03:00;local-standard;hourly") throw new Exception("Hour/Day/Alignment contract or persistence failed.");
+var librarySelector = new SpectralProfileComponent();
+typeof(SpectralProfileComponent).GetField("selectedId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(librarySelector, "CIE_std_illum_D65:1");
+var libraryArchive = new GH_Archive(); libraryArchive.AppendObject(librarySelector, "Component");
+var libraryCopy = new SpectralProfileComponent();
+if (!libraryArchive.ExtractObject(libraryCopy, "Component")) throw new Exception("Library selection restore failed.");
+var libraryData = TestData.Create(new() { [0] = true }); // Restored True must not reopen the modal picker.
+SolveUntil(libraryCopy, libraryData, () => libraryData.Outputs.ContainsKey(0));
+if (Math.Abs(((SpectralProfileGoo)libraryData.Outputs[0]!).Value.Factor - .01801871704609) > 1e-12)
+    throw new Exception("Saved library selection emitted a different factor.");
 var profileData = TestData.Create(new() { [0] = "Test daylight", [1] = .0185 });
 SolveUntil(explicitProfile, profileData, () => profileData.Outputs.ContainsKey(0));
 if (((SpectralProfileGoo)profileData.Outputs[0]!).Value.Factor != .0185) throw new Exception("Explicit profile solve failed.");
-Console.WriteLine("PASS 18 plant-light/new-and-compatibility interface archives, typed ports, hourly integral tree and explicit profile solve. Live Rhino wiring is not exercised.");
+Console.WriteLine("PASS 21 plant-light/timing interface archives, saved Hour/Day/Alignment, typed ports, hourly integral tree and explicit profile solve. Live Rhino wiring is not exercised.");
 
 foreach (var (component, inputs, radianceIndex) in new[] { ((GH_Component)new AnnualSimulationComponent(), 12, 7), ((GH_Component)new IesToRadianceComponent(), 11, 10) })
 {

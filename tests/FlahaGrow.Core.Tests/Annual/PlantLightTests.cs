@@ -8,6 +8,38 @@ namespace FlahaGrow.Core.Tests.Annual;
 
 public sealed class PlantLightTests : IDisposable
 {
+    [Fact]
+    public void AnnualTimingUsesIntervalStartsAndStrictAlignment()
+    {
+        Assert.Equal(0, AnnualTime.HourIndex(1, 1, 0));
+        Assert.Equal(8759, AnnualTime.HourIndex(12, 31, 23));
+        Assert.Equal(59 * 24, AnnualTime.HourIndex(3, 1, 0));
+        Assert.Equal(6109, AnnualTime.HourIndex(9, 12, 13));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnnualTime.HourIndex(2, 29, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnnualTime.HourIndex(1, 1, 24));
+        Assert.Contains("00:00–01:00", AnnualTime.Label(0));
+        Assert.Equal("annual-365;UTC+03:00;local-standard;hourly", AnnualTime.Alignment(180));
+        Assert.Equal(AnnualTime.Alignment(-210), AnnualTime.ValidateAxis(AnnualTime.Alignment(-210)));
+        Assert.Equal("", AnnualTime.ValidateAxis(""));
+        Assert.Throws<ArgumentException>(() => AnnualTime.ValidateAxis("September 12, 1 PM"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnnualTime.Alignment(841));
+    }
+    [Fact]
+    public void BundledReferencesHaveTraceableFactorsAndExplicitLimitations()
+    {
+        Assert.Equal(18, SpectralProfileLibrary.Profiles.Count);
+        Assert.Equal(6, SpectralProfileLibrary.Profiles.Count(p => p.Category == "Horticultural research"));
+        foreach (var item in SpectralProfileLibrary.Profiles)
+        {
+            Assert.True(double.IsFinite(item.Profile.Factor) && item.Profile.Factor > 0);
+            Assert.Contains("https://doi.org/", item.Profile.Provenance);
+            Assert.Contains("SHA256", item.Profile.Provenance);
+            Assert.Contains("not a matched commercial fixture", item.Profile.Warning);
+            Assert.Same(item, SpectralProfileLibrary.Get(item.Id));
+        }
+        Assert.Equal(.01801871704609, SpectralProfileLibrary.Get("CIE_std_illum_D65:1").Profile.Factor, 12);
+        Assert.Throws<ArgumentException>(() => SpectralProfileLibrary.Get("unknown"));
+    }
     private readonly string root = Path.Combine(Path.GetTempPath(), "FlahaGrow-plant-light-tests", Guid.NewGuid().ToString("N"));
 
     [Fact]
@@ -85,7 +117,7 @@ public sealed class PlantLightTests : IDisposable
     [Fact]
     public void IndependentReadersAndMixedFactorsAgree()
     {
-        var first = new PlantLightContext(AnnualIlluminanceResult.Open(CreateCache(2)), new("Daylight", .0185), "nonleap Jan1; UTC+03 standard; hourly midpoint");
+        var first = new PlantLightContext(AnnualIlluminanceResult.Open(CreateCache(2)), new("Daylight", .0185), AnnualTime.Alignment(180));
         var second = new PlantLightContext(AnnualIlluminanceResult.Open(CreateCache(2)), new("LED", .03), first.TimeAxis);
         var mixed = PlantLightContext.Combine(new[] { first, second });
         Assert.Equal(new[] { 48.5, 97d }, mixed.PpfdAtHour(0));

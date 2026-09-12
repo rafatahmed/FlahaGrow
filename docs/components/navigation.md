@@ -6,7 +6,7 @@ Panels are a workflow aid. Source under `src/FlahaGrow.Grasshopper/Components` i
 | --- | --- | --- |
 | 00 Setup | Simulation Paths; Working Directory; Radiance Status | Resolve/create contexts and check Radiance. |
 | 01 Materials | Facade, Frame, Ground, Concrete, Glazing | Select Radiance modifiers. |
-| 02 Spectral | Spectral Profile; Select Spectral Factor; Load Spectral Data | Explicit source assumptions and calculated lux-to-PPFD ratios. |
+| 02 Spectral | Spectral Profile; Custom Spectral Profile; Select Spectral Factor; Load Spectral Data | One-button reference selection or advanced custom source assumptions. |
 | 03 Annual | Simulation; Progress; Load Result; Combine; readers; selectors; marker; plots | Create, validate, read, combine, display annual illuminance. |
 | 04 Electric Light | IES selector/conversion; geometry; compilation; Electric Annual | Prepare fixtures and electric annual results. |
 | 05 PPFD | Plant Light Context; Combine Plant Light; PPFD at Hour; Annual PPFD at Sensor; compatibility converters/readers | Bind per-source profiles and read estimated PPFD. |

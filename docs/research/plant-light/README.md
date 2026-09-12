@@ -1,8 +1,11 @@
 # Plant-light scientific reference package
 
 Research and design material for FlahaGrow. The CIE photopic weighting CSV and
-metadata are now embedded by Core with attribution; source-profile candidates
-are not enabled as runtime presets. Scope: daylight, white LEDs and horticultural LEDs.
+metadata are embedded by Core with attribution. The Spectral Profile table now
+offers 18 pre-integrated references (three daylight, nine LEDs, six horticultural
+treatments), with explicit acknowledgment of research limitations. The archived
+audit's candidate status describes its research snapshot, not the current UI.
+These are not project-validated fixture presets. Scope: daylight, white LEDs and horticultural LEDs.
 Source retrieval and code assessment: 2026-09-12.
 
 Start with the [research report](radiance-ppfd-dli-research.md), then the

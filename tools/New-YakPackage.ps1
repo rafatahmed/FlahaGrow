@@ -51,6 +51,8 @@ if (Test-Path -LiteralPath $stagingDirectory) {
 New-Item -ItemType Directory -Path $stagingDirectory | Out-Null
 Copy-Item -LiteralPath $pluginOutput -Destination $stagingDirectory
 Copy-Item -LiteralPath $coreOutput -Destination $stagingDirectory
+New-Item -ItemType Directory -Path (Join-Path $stagingDirectory 'PlantLight') | Out-Null
+Copy-Item -LiteralPath (Join-Path $repoRoot 'src\FlahaGrow.Core\PlantLight\NOTICE.md') -Destination (Join-Path $stagingDirectory 'PlantLight\NOTICE.md')
 Copy-Item -LiteralPath (Join-Path $repoRoot 'package\manifest.yml') -Destination $stagingDirectory
 $stagedManifest = Join-Path $stagingDirectory 'manifest.yml'
 $manifest = Get-Content -LiteralPath $stagedManifest -Raw

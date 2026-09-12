@@ -9,7 +9,7 @@ public sealed class PlantLightContext
     public IReadOnlyList<PlantLightSource> Sources => Array.AsReadOnly(sources);
     public int Sensors => sources[0].Result.Sensors;
     public string TimeAxis { get; }
-    public string Description => $"Lux-derived estimated PPFD/DLI; PAR 400–700 nm; 8760 × 3600 s; axis {TimeAxis}; "
+    public string Description => $"Lux-derived estimated PPFD/DLI; PAR 400–700 nm; {Sensors} sensors (indices 0–{Sensors - 1}); 8760 × 3600 s; annual alignment {(TimeAxis.Length == 0 ? "unspecified; single-source indices only" : TimeAxis + " (user-declared, not verified)")}; "
         + string.Join("; ", sources.Select(s => $"run {s.Result.RunId}, {s.Profile.Label}, factor {s.Profile.Factor:G9}, {s.Profile.Method}, {s.Profile.Provenance}"));
 
     public PlantLightContext(AnnualIlluminanceResult result, SpectralProfile profile, string timeAxis = "")
@@ -18,7 +18,7 @@ public sealed class PlantLightContext
     private PlantLightContext(PlantLightSource[] items, string timeAxis)
     {
         if (items.Length == 0) throw new ArgumentException("At least one source required.");
-        sources = items.ToArray(); TimeAxis = timeAxis.Trim();
+        sources = items.ToArray(); TimeAxis = AnnualTime.ValidateAxis(timeAxis);
         foreach (var s in sources)
         {
             if (s.Result.IsCombinedLux)

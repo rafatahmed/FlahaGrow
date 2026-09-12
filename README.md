@@ -17,54 +17,55 @@ The numbered order is intentional. Component GUIDs and ports are stable; moving 
 
 ## Complete component catalog
 
-This catalog lists the 44 placeable FlahaGrow components in the current toolbar. Use the ordered panels rather than the old mixed **Metrics** panel. For new PPFD/DLI definitions, follow the [typed plant-light workflow](docs/workflows/plant-light-workflow.md).
+This catalog lists the 45 placeable FlahaGrow components in the current toolbar. Use the ordered panels rather than the old mixed **Metrics** panel. For new PPFD/DLI definitions, follow the [typed plant-light workflow](docs/workflows/plant-light-workflow.md).
 
 | Panel | Component | Role | Icon |
 |---|---|---|---|
-| 00 Setup | Simulation Paths | Resolve project and bundled-library paths. | Not implemented |
-| 00 Setup | Working Directory | Open or initialize a project and named analysis. | Not implemented |
-| 00 Setup | Radiance Status | Discover and check the selected Radiance installation. | Not implemented |
-| 01 Materials | Facade Material | Select an opaque façade modifier. | Not implemented |
-| 01 Materials | Frame Material | Select an opaque frame modifier. | Not implemented |
-| 01 Materials | Ground Material | Select an opaque ground modifier. | Not implemented |
-| 01 Materials | Concrete Material | Select an opaque concrete modifier. | Not implemented |
-| 01 Materials | Glazing Material | Select a glazing modifier. | Not implemented |
-| 02 Spectral | Select Spectral Factor | Choose a standard or custom spectral conversion factor. | Not implemented |
-| 02 Spectral | Load Spectral Data | Open a spectral-data table and calculate its conversion factor. | Not implemented |
-| 02 Spectral | Spectral Profile | Declare a conversion factor or derive one from an explicit spectral CSV. | Not implemented |
-| 02 Spectral | Select Spectral Factor (Legacy) | Preserve older spectral definitions; do not use for new work. | Not implemented |
-| 03 Annual | Annual Simulation | Prepare and launch an annual daylight Radiance run. | Not implemented |
-| 03 Annual | Annual Simulation Progress | Read per-part run progress and batch stages. | Not implemented |
-| 03 Annual | Load Annual Result | Validate, merge, and cache an annual result. | Not implemented |
-| 03 Annual | Combine Annual Lighting | Combine compatible completed daylight and electric runs. | Not implemented |
-| 03 Annual | Illuminance Point in Time | Read one point-in-time illuminance result. | Not implemented |
-| 03 Annual | Illuminance Sensor | Read one sensor's annual illuminance series. | Not implemented |
-| 03 Annual | Select Date and Hour | Convert a date and hour to an annual hour index. | Not implemented |
-| 03 Annual | Select PIT to PPFD | Select an hour index for point-in-time PPFD. | Not implemented |
-| 03 Annual | Sensor Marker | Create a viewport marker for a sensor. | Not implemented |
-| 03 Annual | Annual Plot | Plot annual illuminance data. | Not implemented |
-| 03 Annual | Annual Plot PPFD for Sensor | Plot annual PPFD or DLI data for one sensor. | Not implemented |
-| 04 Electric Light | Select IES Luminaire | Choose an IES grow-light luminaire. | Not implemented |
-| 04 Electric Light | IES to Radiance | Convert an IES luminaire to Radiance files. | Not implemented |
-| 04 Electric Light | Lighting Geometry | Position Radiance luminaires at points. | Not implemented |
-| 04 Electric Light | Compile Luminaires | Compile luminaires into a Radiance file. | Not implemented |
-| 04 Electric Light | Electric Annual Simulation | Run an annual electric-light Radiance calculation. | Not implemented |
-| 05 PPFD | Lux to PPFD | Convert illuminance to PPFD. | Not implemented |
-| 05 PPFD | Plant Light Context | Bind validated annual illuminance to its source-specific spectral profile. | Not implemented |
-| 05 PPFD | Combine Plant Light | Combine compatible contexts after source-specific conversion. | Not implemented |
-| 05 PPFD | PPFD at Hour | Read one hour of PPFD for all sensors from a context. | Not implemented |
-| 05 PPFD | Annual PPFD at Sensor | Read annual PPFD for one sensor from a context. | Not implemented |
-| 05 PPFD | Hourly PPFD | Convert selected-hour illuminance values to PPFD. | Not implemented |
-| 05 PPFD | PPFD Each Sensor | Convert one sensor's annual illuminance series to PPFD. | Not implemented |
-| 05 PPFD | Hourly PAR | Read and convert one annual-cache hour for all sensors. | Not implemented |
-| 05 PPFD | PAR Each Sensor | Read and convert one annual-cache sensor series. | Not implemented |
-| 06 DLI | Annual DLI | Aggregate annual PPFD into 365 daily DLI values. | Not implemented |
-| 06 DLI | DLI for Day | Read daily DLI and hourly photon integrals for all sensors. | Not implemented |
-| 06 DLI | Annual DLI at Sensor | Read 365 daily DLI values for one context sensor. | Not implemented |
-| 06 DLI | DLI Hourly | Read a selected day's hourly DLI for all sensors. | Not implemented |
-| 06 DLI | DLI Each Sensor | Read daily DLI for one annual-cache sensor. | Not implemented |
-| 06 DLI | DLI Target | Compare daily DLI values with a crop target. | Not implemented |
-| 07 Energy | Lighting Energy | Integrate a power schedule into energy and operating hours. | Not implemented |
+| 00 Setup | Simulation Paths | Resolve project and bundled-library paths. | Embedded PNG |
+| 00 Setup | Working Directory | Open or initialize a project and named analysis. | Embedded PNG |
+| 00 Setup | Radiance Status | Discover and check the selected Radiance installation. | Embedded PNG |
+| 01 Materials | Facade Material | Select an opaque façade modifier. | Embedded PNG |
+| 01 Materials | Frame Material | Select an opaque frame modifier. | Embedded PNG |
+| 01 Materials | Ground Material | Select an opaque ground modifier. | Embedded PNG |
+| 01 Materials | Concrete Material | Select an opaque concrete modifier. | Embedded PNG |
+| 01 Materials | Glazing Material | Select a glazing modifier. | Embedded PNG |
+| 02 Spectral | Select Spectral Factor | Choose a standard or custom spectral conversion factor. | Embedded PNG |
+| 02 Spectral | Load Spectral Data | Open a spectral-data table and calculate its conversion factor. | Embedded PNG |
+| 02 Spectral | Spectral Profile | Select one of 18 bundled references using a Button and table; no CSV required. | Embedded PNG |
+| 02 Spectral | Custom Spectral Profile | Declare a custom factor or derive one from an explicit spectral CSV; preserves the original five-input profile component. | Embedded PNG |
+| 02 Spectral | Select Spectral Factor (Legacy) | Preserve older spectral definitions; do not use for new work. | Embedded PNG |
+| 03 Annual | Annual Simulation | Prepare and launch an annual daylight Radiance run. | Embedded PNG |
+| 03 Annual | Annual Simulation Progress | Read per-part run progress and batch stages. | Embedded PNG |
+| 03 Annual | Load Annual Result | Validate, merge, and cache an annual result. | Embedded PNG |
+| 03 Annual | Combine Annual Lighting | Combine compatible completed daylight and electric runs. | Not supplied |
+| 03 Annual | Illuminance Point in Time | Read one point-in-time illuminance result. | Not supplied |
+| 03 Annual | Illuminance Sensor | Read one sensor's annual illuminance series. | Not supplied |
+| 03 Annual | Select Date and Hour | Convert a date and hour to an annual hour index. | Not supplied |
+| 03 Annual | Select PIT to PPFD | Select an hour index for point-in-time PPFD. | Not supplied |
+| 03 Annual | Sensor Marker | Create a viewport marker for a sensor. | Not supplied |
+| 03 Annual | Annual Plot | Plot annual illuminance data. | Not supplied |
+| 03 Annual | Annual Plot PPFD for Sensor | Plot annual PPFD or DLI data for one sensor. | Not supplied |
+| 04 Electric Light | Select IES Luminaire | Choose an IES grow-light luminaire. | Embedded PNG |
+| 04 Electric Light | IES to Radiance | Convert an IES luminaire to Radiance files. | Embedded PNG |
+| 04 Electric Light | Lighting Geometry | Position Radiance luminaires at points. | Embedded PNG |
+| 04 Electric Light | Compile Luminaires | Compile luminaires into a Radiance file. | Embedded PNG |
+| 04 Electric Light | Electric Annual Simulation | Run an annual electric-light Radiance calculation. | Embedded PNG |
+| 05 PPFD | Lux to PPFD | Convert illuminance to PPFD. | Embedded PNG |
+| 05 PPFD | Plant Light Context | Bind validated annual illuminance to its source-specific spectral profile. | Embedded PNG |
+| 05 PPFD | Combine Plant Light | Combine compatible contexts after source-specific conversion. | Embedded PNG |
+| 05 PPFD | PPFD at Hour | Read one hour of PPFD for all sensors from a context. | Embedded PNG |
+| 05 PPFD | Annual PPFD at Sensor | Read annual PPFD for one sensor from a context. | Not supplied |
+| 05 PPFD | Hourly PPFD | Convert selected-hour illuminance values to PPFD. | Not supplied |
+| 05 PPFD | PPFD Each Sensor | Convert one sensor's annual illuminance series to PPFD. | Embedded PNG |
+| 05 PPFD | Hourly PAR | Read and convert one annual-cache hour for all sensors. | Not supplied |
+| 05 PPFD | PAR Each Sensor | Read and convert one annual-cache sensor series. | Not supplied |
+| 06 DLI | Annual DLI | Aggregate annual PPFD into 365 daily DLI values. | Embedded PNG |
+| 06 DLI | DLI for Day | Read daily DLI and hourly photon integrals for all sensors. | Embedded PNG |
+| 06 DLI | Annual DLI at Sensor | Read 365 daily DLI values for one context sensor. | Embedded PNG |
+| 06 DLI | DLI Hourly | Read a selected day's hourly DLI for all sensors. | Embedded PNG |
+| 06 DLI | DLI Each Sensor | Read daily DLI for one annual-cache sensor. | Embedded PNG |
+| 06 DLI | DLI Target | Compare daily DLI values with a crop target. | Not supplied |
+| 07 Energy | Lighting Energy | Integrate a power schedule into energy and operating hours. | Embedded PNG |
 
 ### Compatibility components
 
@@ -72,7 +73,7 @@ Six registered components are deliberately hidden from the toolbar so existing d
 
 ### Component icons
 
-There is currently no implemented per-component icon set in the plugin source. This catalog is therefore the complete list of components, not an icon inventory. Each component does already expose its version and exact update time on the canvas and in its right-click menu. A visual icon system should be added as a separate, deliberate design task so that the icon meaning is consistent across all 44 placeable components.
+The plugin embeds 32 named component icons and the FlahaGrow logo from the supplied PNG artwork. Icons are rendered and cached at 24 × 24 pixels; the 267 × 267 originals remain unchanged. Components without matching artwork retain the existing fallback. See the [icon mapping and remaining artwork](docs/components/icons.md).
 
 ## Documentation
 

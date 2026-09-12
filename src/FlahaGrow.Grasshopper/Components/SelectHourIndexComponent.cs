@@ -1,33 +1,62 @@
 using System.Drawing;
 using System.Windows.Forms;
 using Grasshopper.Kernel;
+using GH_IO.Serialization;
+using FlahaGrow.Core.Operations;
+using FlahaGrow.Core.PlantLight;
 
 namespace FlahaGrow.Grasshopper.Components;
 
-/// <summary>Shared non-leap-year hour selection state, matching the legacy sticky key.</summary>
-internal static class AnnualHourSelection
-{
-    internal static int? Index;
-    internal static string DateTimeLabel = "No date and hour selected.";
-}
-
 public abstract class AnnualHourSelectorComponent : FlahaGrowComponent
 {
+    private int? selectedIndex;
+    private readonly ActionLatch picker = new();
     protected AnnualHourSelectorComponent(string name, string nick, string description, Guid guid) : base(name, nick, description, "FlahaGrow", "03 Annual") => Id = guid;
     private Guid Id { get; }
     public override Guid ComponentGuid => Id;
-    protected override void RegisterInputParams(GH_InputParamManager p) => p.AddBooleanParameter("Run", "Run", "Set True to open the date and hour selector.", GH_ParamAccess.item, false);
-    protected override void RegisterOutputParams(GH_OutputParamManager p) { p.AddIntegerParameter("Selected hour index", "Hour", "0-based non-leap-year index for annual results.", GH_ParamAccess.item); p.AddTextParameter("Selected date and hour", "Date", "Readable selected date and hour.", GH_ParamAccess.item); }
+    protected override void RegisterInputParams(GH_InputParamManager p)
+    {
+        p.AddBooleanParameter("Run", "Run", "Connect a Button. Opens once on False → True; selected clock hour is the interval start.", GH_ParamAccess.item, false);
+        p.AddIntegerParameter("Simulation UTC offset (minutes)", "UTC min", "Optional: actual simulation/weather-file standard-time UTC offset in minutes, e.g. +180 for UTC+03:00. Enables Alignment output. Not inferred from the computer/date. Verify mixed-source schedules share the same 365-day Jan–Dec axis, without DST.", GH_ParamAccess.item);
+        p[1].Optional = true;
+    }
+    protected override void RegisterOutputParams(GH_OutputParamManager p)
+    {
+        p.AddIntegerParameter("Selected hour index", "Hour", "Connect to PPFD at Hour.Hour or an illuminance Hour input. 0–8759; interval start, local standard time.", GH_ParamAccess.item);
+        p.AddTextParameter("Selected date and hour", "Date", "Display only: connect to a Panel. NOT Plant Light Context.Alignment.", GH_ParamAccess.item);
+        p.AddIntegerParameter("Selected day index", "Day", "Connect to DLI for Day.Day. 0–364; Jan 1 = 0. Equals floor(Hour / 24).", GH_ParamAccess.item);
+        p.AddTextParameter("Annual alignment declaration", "Alignment", "Connect to Plant Light Context.Alignment for each mixed source. Requires explicit simulation UTC offset. Whole annual axis, not chosen date. User declaration, not verified metadata.", GH_ParamAccess.item);
+    }
     protected override void SolveInstance(IGH_DataAccess da)
     {
         var run = false; da.GetData(0, ref run);
-        if (run)
+        int utcMinutes = 0;
+        if (da.GetData(1, ref utcMinutes))
+        {
+            try { da.SetData(3, AnnualTime.Alignment(utcMinutes)); }
+            catch (ArgumentException ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); return; }
+        }
+        if (picker.Observe(run))
         {
             using var dialog = new AnnualHourSelectorDialog();
-            if (dialog.ShowDialog() == DialogResult.OK) { AnnualHourSelection.Index = dialog.HourIndex; AnnualHourSelection.DateTimeLabel = dialog.SelectedDateTime.ToString("MMMM d, h tt"); }
+            if (dialog.ShowDialog() == DialogResult.OK) { RecordUndoEvent("Select annual interval"); selectedIndex = dialog.HourIndex; }
         }
-        if (AnnualHourSelection.Index.HasValue) da.SetData(0, AnnualHourSelection.Index.Value);
-        da.SetData(1, AnnualHourSelection.DateTimeLabel);
+        if (selectedIndex.HasValue)
+        {
+            da.SetData(0, selectedIndex.Value); da.SetData(1, AnnualTime.Label(selectedIndex.Value)); da.SetData(2, selectedIndex.Value / 24);
+        }
+        else da.SetData(1, "Click Button → Run to select a 365-day date and interval start hour.");
+    }
+    public override bool Write(GH_IWriter writer)
+    {
+        if (selectedIndex.HasValue) writer.SetInt32("IntervalStartIndex", selectedIndex.Value);
+        return base.Write(writer);
+    }
+    public override bool Read(GH_IReader reader)
+    {
+        selectedIndex = reader.ItemExists("IntervalStartIndex") ? reader.GetInt32("IntervalStartIndex") : null;
+        if (selectedIndex is < 0 or > 8759) selectedIndex = null;
+        picker.Disarm(); return base.Read(reader);
     }
 }
 
@@ -51,7 +80,7 @@ internal sealed class AnnualHourSelectorDialog : Form
     internal int HourIndex { get; private set; }
     internal AnnualHourSelectorDialog()
     {
-        Text = "Select Date and Hour"; ClientSize = new Size(330, 315); BackColor = Color.White; StartPosition = FormStartPosition.CenterScreen; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false;
+        Text = "Select interval START — local standard time"; ClientSize = new Size(400, 315); BackColor = Color.White; StartPosition = FormStartPosition.CenterScreen; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false;
         calendar.DateChanged += (_, _) => GuardLeapDay(); Controls.Add(calendar);
         Controls.Add(new Label { Text = "Hour:", Location = new Point(20, 194), AutoSize = true });
         for (var value = 1; value <= 12; value++) hour.Items.Add(value.ToString()); hour.SelectedIndex = 0; Controls.Add(hour); Controls.Add(am); Controls.Add(pm);
@@ -66,6 +95,6 @@ internal sealed class AnnualHourSelectorDialog : Form
     {
         var date = calendar.SelectionStart; if (date.Month == 2 && date.Day == 29) { GuardLeapDay(); return; }
         var hourValue = int.Parse(hour.SelectedItem!.ToString()!); if (pm.Checked && hourValue != 12) hourValue += 12; if (am.Checked && hourValue == 12) hourValue = 0;
-        SelectedDateTime = new DateTime(date.Year, date.Month, date.Day, hourValue, 0, 0); HourIndex = (date.DayOfYear - 1) * 24 + ((hourValue + 23) % 24); DialogResult = DialogResult.OK;
+        SelectedDateTime = new DateTime(2001, date.Month, date.Day, hourValue, 0, 0); HourIndex = AnnualTime.HourIndex(date.Month, date.Day, hourValue); DialogResult = DialogResult.OK;
     }
 }

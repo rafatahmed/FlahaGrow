@@ -16,7 +16,7 @@ internal static class PlantLightIntegrationChecks
         ElectricAnnualMatrix.WriteRun(folder, run, Enumerable.Range(1, 13).Select(i => i * 1000d).ToArray(), Enumerable.Repeat(1d, 8760).ToArray());
         foreach (var part in run.Parts) File.WriteAllText(Path.Combine(folder, part.StateFile), run.RunId.ToString("N") + " CommandsSucceeded");
         var cache = Solve(new AnnualResultCacheComponent(), new() { [0] = folder, [1] = true });
-        var profile = Solve(new SpectralProfileComponent(), new() { [0] = "Fixture assumption", [1] = .0185 });
+        var profile = Solve(new CustomSpectralProfileComponent(), new() { [0] = "Fixture assumption", [1] = .0185 });
         var context = Solve(new PlantLightContextComponent(), new() { [0] = cache.Outputs[0]!, [1] = profile.Outputs[0]! });
         if (context.Outputs[0] is not PlantLightContextGoo) throw new Exception("No typed context.");
         Dictionary<int, object> Inputs(int index) => new() { [0] = context.Outputs[0]!, [1] = index };
@@ -37,11 +37,11 @@ internal static class PlantLightIntegrationChecks
             throw new Exception("Independent component PPFD/DLI branches disagree.");
         var bad = Solve(new DliForDayComponent(), Inputs(365), expectError: true);
         if (bad.Outputs.ContainsKey(0)) throw new Exception("Invalid day emitted data.");
-        var both = Solve(new SpectralProfileComponent(), new() { [0] = "Ambiguous", [1] = .0185, [2] = "unused.csv" }, expectError: true);
+        var both = Solve(new CustomSpectralProfileComponent(), new() { [0] = "Ambiguous", [1] = .0185, [2] = "unused.csv" }, expectError: true);
         if (both.Outputs.ContainsKey(0)) throw new Exception("Ambiguous spectral inputs emitted a profile.");
         var csv = Path.Combine(root, "spectrum.csv");
         File.WriteAllText(csv, "wavelength_nm,value\n360,1\n830,1\n");
-        var imported = Solve(new SpectralProfileComponent(), new() { [0] = "Energy reference", [2] = csv });
+        var imported = Solve(new CustomSpectralProfileComponent(), new() { [0] = "Energy reference", [2] = csv });
         var legacy = Solve(new LoadSpectralDataComponent(), new() { [2] = csv });
         if (Math.Abs((double)legacy.Outputs[0]! - ((SpectralProfileGoo)imported.Outputs[0]!).Value.Factor) > 1e-12)
             throw new Exception("Legacy/new spectral calculation diverged.");
