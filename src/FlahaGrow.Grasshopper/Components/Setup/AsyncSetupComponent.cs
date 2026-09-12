@@ -13,7 +13,7 @@ public abstract class AsyncSetupComponent<T> : FlahaGrowComponent where T : clas
     protected T? Result { get; private set; }
     protected string Status { get; private set; } = "Waiting for inputs.";
     protected AsyncSetupComponent(string name, string nickname, string description)
-        : base(name, nickname, description, "FlahaGrow", "Setup") { }
+        : base(name, nickname, description, "FlahaGrow", "00 Setup") { }
 
     protected static string Key(object value) => JsonSerializer.Serialize(value);
     protected bool Changed(string key) => key != currentKey;

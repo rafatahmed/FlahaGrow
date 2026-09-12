@@ -8,7 +8,7 @@ namespace FlahaGrow.Grasshopper.Components;
 public sealed class DliTargetComponent : FlahaGrowComponent
 {
     public DliTargetComponent()
-        : base("DLI Target", "DLI Target", "Reports daily DLI sufficiency and deficiency against a plant-specific target.", "FlahaGrow", "Metrics")
+        : base("DLI Target", "DLI Target", "Reports daily DLI sufficiency and deficiency against a plant-specific target.", "FlahaGrow", "06 DLI")
     {
     }
 

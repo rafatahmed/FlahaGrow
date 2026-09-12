@@ -12,5 +12,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Update="Fixtures/*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../docs/research/plant-light/data/cie/CIE_std_illum_D65.csv" Link="Fixtures/CIE_std_illum_D65.csv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

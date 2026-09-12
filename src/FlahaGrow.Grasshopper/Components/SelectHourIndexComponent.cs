@@ -13,7 +13,7 @@ internal static class AnnualHourSelection
 
 public abstract class AnnualHourSelectorComponent : FlahaGrowComponent
 {
-    protected AnnualHourSelectorComponent(string name, string nick, string description, Guid guid) : base(name, nick, description, "FlahaGrow", "Annual") => Id = guid;
+    protected AnnualHourSelectorComponent(string name, string nick, string description, Guid guid) : base(name, nick, description, "FlahaGrow", "03 Annual") => Id = guid;
     private Guid Id { get; }
     public override Guid ComponentGuid => Id;
     protected override void RegisterInputParams(GH_InputParamManager p) => p.AddBooleanParameter("Run", "Run", "Set True to open the date and hour selector.", GH_ParamAccess.item, false);

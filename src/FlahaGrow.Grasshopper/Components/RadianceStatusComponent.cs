@@ -8,7 +8,7 @@ namespace FlahaGrow.Grasshopper.Components;
 public sealed class RadianceStatusComponent : FlahaGrowComponent
 {
     public RadianceStatusComponent()
-        : base("Radiance Status", "Radiance", "Checks whether the Radiance rcontrib executable can be found.", "FlahaGrow", "Setup")
+        : base("Radiance Status", "Radiance", "Checks whether the Radiance rcontrib executable can be found.", "FlahaGrow", "00 Setup")
     {
     }
 

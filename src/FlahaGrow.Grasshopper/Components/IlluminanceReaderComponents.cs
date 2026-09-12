@@ -7,7 +7,7 @@ namespace FlahaGrow.Grasshopper.Components;
 
 public abstract class IlluminanceReaderComponent : FlahaGrowComponent
 {
-    protected IlluminanceReaderComponent(string name, string nick, Guid id) : base(name, nick, "Reads annual illuminance from a FlahaGrow .f32 cache by sensor or hour.", "FlahaGrow", "Annual") => Id = id;
+    protected IlluminanceReaderComponent(string name, string nick, Guid id) : base(name, nick, "Reads annual illuminance from a FlahaGrow .f32 cache by sensor or hour.", "FlahaGrow", "03 Annual") => Id = id;
     private Guid Id { get; }
     public override Guid ComponentGuid => Id;
     protected override void RegisterInputParams(GH_InputParamManager p) { p.AddTextParameter("Result cache", "F32", "Annual .f32 cache.", GH_ParamAccess.item); p.AddTextParameter("Mode", "Mode", "sensor or hour.", GH_ParamAccess.item, "sensor"); p.AddIntegerParameter("Index", "i", "Sensor or hour index.", GH_ParamAccess.item); p.AddBooleanParameter("Run", "Run", "Read the cache.", GH_ParamAccess.item, false); }

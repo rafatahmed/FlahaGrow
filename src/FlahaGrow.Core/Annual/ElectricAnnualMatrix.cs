@@ -11,6 +11,16 @@ public static class ElectricAnnualMatrix
 {
     public const int HoursPerNonLeapYear = 365 * 24;
 
+    public static void WriteRun(string folder, AnnualRunManifest manifest, IReadOnlyList<double> fullOutputLux, IReadOnlyList<double> schedule)
+    {
+        if (fullOutputLux.Count != manifest.Sensors) throw new InvalidDataException("Electric sensor count does not match the run manifest.");
+        ValidateSchedule(schedule, manifest.Hours);
+        foreach (var value in fullOutputLux)
+            if (!double.IsFinite(value) || value < 0) throw new InvalidDataException("Invalid full-output illuminance.");
+        foreach (var part in manifest.Parts)
+            Write(Path.Combine(folder, part.ResultFile), fullOutputLux.Skip(part.SensorStart).Take(part.Sensors).ToArray(), schedule, manifest.Hours);
+    }
+
     public static void ValidateSchedule(IReadOnlyList<double> schedule, int hours = HoursPerNonLeapYear)
     {
         if (hours <= 0) throw new ArgumentOutOfRangeException(nameof(hours));

@@ -63,6 +63,40 @@ if (!revisionArchive.ExtractObject(restoredTracked, "Component") || restoredTrac
     throw new InvalidOperationException("Component revision was not preserved through a Grasshopper archive.");
 Console.WriteLine($"PASS component revision ledger: {tracked.Length} components registered; archive revision retained.");
 
+var plantCases = new (GH_Component Component, int Inputs, int Outputs)[]
+{
+    (new SpectralProfileComponent(), 5, 3), (new PlantLightContextComponent(), 3, 2),
+    (new CombinePlantLightComponent(), 1, 2), (new PpfdAtHourComponent(), 2, 2),
+    (new AnnualPpfdAtSensorComponent(), 2, 2), (new DliForDayComponent(), 2, 3),
+    (new AnnualDliAtSensorComponent(), 2, 2),
+    (new HourlyParComponent(), 3, 2), (new ParEachSensorComponent(), 7, 4),
+    (new DliHourlyComponent(), 3, 2), (new DliEachSensorComponent(), 7, 3),
+    (new AnnualResultCacheComponent(), 2, 4), (new LuxToPpfdComponent(), 2, 1),
+    (new AnnualDliComponent(), 2, 2), (new HourlyPpfdComponent(), 2, 1),
+    (new AnnualSensorPpfdComponent(), 2, 1), (new SelectSpectralFactorComponent(), 3, 3),
+    (new LoadSpectralDataComponent(), 3, 5)
+};
+foreach (var (component, inputCount, outputCount) in plantCases)
+{
+    if (component.Params.Input.Count != inputCount || component.Params.Output.Count != outputCount)
+        throw new Exception("Plant-light interface mismatch: " + component.Name);
+    var archive = new GH_Archive(); archive.AppendObject(component, "Component");
+    var copy = (GH_Component)Activator.CreateInstance(component.GetType(), component.GetType().GetConstructors().Single().GetParameters().Select(p => p.DefaultValue).ToArray())!;
+    var restored = new GH_Archive();
+    if (!restored.Deserialize_Xml(archive.Serialize_Xml()) || !restored.ExtractObject(copy, "Component")) throw new Exception("Plant-light archive failed.");
+    var before = component.Params.Input.Concat(component.Params.Output).Select(p => (p.Name, p.Access, p.Optional, p.GetType()));
+    var after = copy.Params.Input.Concat(copy.Params.Output).Select(p => (p.Name, p.Access, p.Optional, p.GetType()));
+    if (!before.SequenceEqual(after) || component.ComponentGuid != copy.ComponentGuid) throw new Exception("Plant-light ports changed during archive round trip.");
+}
+if (new DliForDayComponent().Params.Output[2].Access != GH_ParamAccess.tree
+    || new PpfdAtHourComponent().Params.Input[0] is not PlantLightContextParameter)
+    throw new Exception("Plant-light typed context/tree contract failed.");
+var explicitProfile = new SpectralProfileComponent();
+var profileData = TestData.Create(new() { [0] = "Test daylight", [1] = .0185 });
+SolveUntil(explicitProfile, profileData, () => profileData.Outputs.ContainsKey(0));
+if (((SpectralProfileGoo)profileData.Outputs[0]!).Value.Factor != .0185) throw new Exception("Explicit profile solve failed.");
+Console.WriteLine("PASS 18 plant-light/new-and-compatibility interface archives, typed ports, hourly integral tree and explicit profile solve. Live Rhino wiring is not exercised.");
+
 foreach (var (component, inputs, radianceIndex) in new[] { ((GH_Component)new AnnualSimulationComponent(), 12, 7), ((GH_Component)new IesToRadianceComponent(), 11, 10) })
 {
     if (component.Params.Input.Count != inputs || component.Params.Input[radianceIndex] is not RadianceParameter || !component.Params.Input[radianceIndex].Optional)
@@ -121,6 +155,7 @@ try
     if (((RadianceGoo)restoredData.Outputs[0]!).Value.State != FlahaGrow.Core.Radiance.RadianceState.NotFound) throw new Exception("Restored custom selection was lost.");
     Console.WriteLine("PASS automatic Radiance check without a button, explicit selection isolation, and analysis context.");
     if (File.GetLastWriteTimeUtc(manifestFile) != stamp) throw new Exception("Warm solves rewrote the manifest.");
+    PlantLightIntegrationChecks.Run(testRoot);
 }
 finally
 {

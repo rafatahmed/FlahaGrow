@@ -21,7 +21,7 @@ public sealed class ElectricAnnualSimulationComponent : FlahaGrowComponent
 
     private sealed record ElectricResult(IReadOnlyList<double> FullOutput, string Status);
 
-    public ElectricAnnualSimulationComponent() : base("Electric Annual Simulation", "Electric Annual", "Runs a full-output Radiance electric-light calculation and expands it by one validated 8,760-hour dimming schedule.", "FlahaGrow", "Electric Light") { }
+    public ElectricAnnualSimulationComponent() : base("Electric Annual Simulation", "Electric Annual", "Runs a full-output Radiance electric-light calculation and expands it by one validated 8,760-hour dimming schedule.", "FlahaGrow", "04 Electric Light") { }
     public override Guid ComponentGuid => new("b87a6c40-49df-4aef-9ee4-99d5d806bb2d");
 
     protected override void RegisterInputParams(GH_InputParamManager p)
@@ -87,7 +87,7 @@ public sealed class ElectricAnnualSimulationComponent : FlahaGrowComponent
     private void Publish(IGH_DataAccess da, string folder, bool launch, string detail, string bin, RadianceInstallation? environment)
     {
         var manifest = AnnualRun.Read(folder);
-        var completed = AnnualPartStatus.Read(folder, manifest, manifest.Parts[0]).Complete;
+        var completed = manifest.Parts.All(part => AnnualPartStatus.Read(folder, manifest, part).Complete);
         if (launch && !completed)
         {
             if (operation.Current is null || operation.Current.IsCompleted)
@@ -116,10 +116,15 @@ public sealed class ElectricAnnualSimulationComponent : FlahaGrowComponent
 
     private static ElectricResult Execute(string folder, AnnualRunManifest manifest, int sensors, string detail, string bin, RadianceInstallation? environment, CancellationToken cancellationToken)
     {
-        var part = manifest.Parts.Single(); var state = Path.Combine(folder, part.StateFile); var log = Path.Combine(folder, part.LogFile); var errors = Path.Combine(folder, "annual_errors_part0.log");
+        var part = manifest.Parts[0]; var log = Path.Combine(folder, part.LogFile); var errors = Path.Combine(folder, "annual_errors_part0.log");
+        void State(string value)
+        {
+            foreach (var declared in manifest.Parts)
+                File.WriteAllText(Path.Combine(folder, declared.StateFile), manifest.RunId.ToString("N") + " " + value);
+        }
         try
         {
-            File.WriteAllText(state, manifest.RunId.ToString("N") + " Running"); File.WriteAllText(log, "[Part 0] 1/2 Compiling electric scene\n");
+            State("Running"); File.WriteAllText(log, "[Part 0] 1/2 Compiling electric scene\n");
             var childEnvironment = environment is null ? null : RadianceStatusService.ChildEnvironment(environment);
             RunOctree(bin, new[] { "envelope.mat", "envelope.rad", "luminaries.rad" }, folder, childEnvironment, errors, cancellationToken);
             File.AppendAllText(log, "[Part 0] 2/2 Calculating full-output electric illuminance\n");
@@ -127,18 +132,18 @@ public sealed class ElectricAnnualSimulationComponent : FlahaGrowComponent
             var values = rgb.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Select(value => double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var result) ? result : throw new InvalidDataException("rtrace returned a nonnumeric RGB value.")).ToArray();
             if (values.Length != checked(sensors * 3)) throw new InvalidDataException($"rtrace returned {values.Length} RGB values; expected {sensors * 3}.");
             var full = Enumerable.Range(0, sensors).Select(index => 47.4 * values[index * 3] + 119.9 * values[index * 3 + 1] + 11.6 * values[index * 3 + 2]).ToList();
-            ElectricAnnualMatrix.Write(Path.Combine(folder, part.ResultFile), full, ReadSchedule(folder, manifest));
-            File.WriteAllText(state, manifest.RunId.ToString("N") + " CommandsSucceeded");
+            ElectricAnnualMatrix.WriteRun(folder, manifest, full, ReadSchedule(folder, manifest));
+            State("CommandsSucceeded");
             AnnualPartStatus.RequireComplete(folder, manifest); File.AppendAllText(log, "[Part 0] Commands succeeded; final annual matrix validated.\n");
             return new ElectricResult(full, "Completed and validated electric annual result. Connect Load Annual Result to build the provenance-bound cache.");
         }
         catch (OperationCanceledException)
         {
-            File.WriteAllText(state, manifest.RunId.ToString("N") + " Cancelled"); throw;
+            State("Cancelled"); throw;
         }
         catch
         {
-            File.WriteAllText(state, manifest.RunId.ToString("N") + " Failed"); throw;
+            State("Failed ElectricCalculation"); throw;
         }
     }
 

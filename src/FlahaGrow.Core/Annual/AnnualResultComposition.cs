@@ -13,7 +13,7 @@ public static class AnnualResultComposition
         AnnualPartStatus.RequireComplete(daylightFolder, daylight); AnnualPartStatus.RequireComplete(electricFolder, electric);
         if (daylight.Hours != electric.Hours || daylight.Sensors != electric.Sensors || !string.Equals(daylight.SensorHash, electric.SensorHash, StringComparison.Ordinal))
             throw new InvalidDataException("Daylight and electric runs must have identical hours, sensor count, and sensor ordering.");
-        if (electric.Parts.Length != 1) throw new InvalidDataException("Electric annual run must contain one full-sensor result part.");
+        if (!daylight.Parts.SequenceEqual(electric.Parts)) throw new InvalidDataException("Source sensor partitions must match.");
         var pointsPath = Path.Combine(daylightFolder, "0.pts");
         if (!File.Exists(pointsPath)) throw new InvalidDataException("Daylight run is missing its snapshotted 0.pts sensor file.");
         var points = File.ReadLines(pointsPath).Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
@@ -28,21 +28,22 @@ public static class AnnualResultComposition
         var root = AnnualRun.Create(Path.Combine(daylight.SourceRoot, "runs"), daylight.SourceRoot, daylight.Sky, points, inputs, daylight.ProjectId, daylight.AnalysisId, daylight.Hours);
         var combined = AnnualRun.Read(root);
         var daylightReaders = AnnualRun.RequireResults(daylightFolder, daylight).Select((path, index) => AnnualMatrix.Rows(path, daylight.Hours, daylight.Parts[index].Sensors).GetEnumerator()).ToArray();
-        using var electricReader = AnnualMatrix.Rows(AnnualRun.RequireResults(electricFolder, electric)[0], electric.Hours, electric.Sensors).GetEnumerator();
+        var electricReaders = AnnualRun.RequireResults(electricFolder, electric).Select((path, index) => AnnualMatrix.Rows(path, electric.Hours, electric.Parts[index].Sensors).GetEnumerator()).ToArray();
         var writers = combined.Parts.Select(part => new StreamWriter(Path.Combine(root, part.ResultFile), false, System.Text.Encoding.ASCII)).ToArray();
         try
         {
             foreach (var writer in writers) writer.Write($"#?RADIANCE\nSOFTWARE= FlahaGrow AnnualResultComposition\nNROWS={combined.Hours}\nNCOLS={combined.Parts[Array.IndexOf(writers, writer)].Sensors}\nNCOMP=1\nFORMAT=ascii\n\n");
             for (var hour = 0; hour < combined.Hours; hour++)
             {
-                if (!electricReader.MoveNext()) throw new InvalidDataException("Electric annual matrix is truncated.");
                 for (var partIndex = 0; partIndex < writers.Length; partIndex++)
                 {
+                    var electricReader = electricReaders[partIndex];
+                    if (!electricReader.MoveNext()) throw new InvalidDataException("Electric annual matrix is truncated.");
                     if (!daylightReaders[partIndex].MoveNext()) throw new InvalidDataException("Daylight annual matrix is truncated.");
                     var part = combined.Parts[partIndex]; var row = daylightReaders[partIndex].Current;
                     for (var sensor = 0; sensor < part.Sensors; sensor++)
                     {
-                        var value = row[sensor] + electricReader.Current[part.SensorStart + sensor];
+                        var value = row[sensor] + electricReader.Current[sensor];
                         if (!float.IsFinite(value) || value < 0) throw new InvalidDataException($"Combined illuminance is invalid at hour index {hour}, sensor index {part.SensorStart + sensor}.");
                         if (sensor > 0) writers[partIndex].Write(' ');
                         writers[partIndex].Write(value.ToString("G9", CultureInfo.InvariantCulture));
@@ -50,9 +51,9 @@ public static class AnnualResultComposition
                     writers[partIndex].Write('\n');
                 }
             }
-            if (electricReader.MoveNext() || daylightReaders.Any(reader => reader.MoveNext())) throw new InvalidDataException("Source annual matrix contains extra rows.");
+            if (electricReaders.Any(reader => reader.MoveNext()) || daylightReaders.Any(reader => reader.MoveNext())) throw new InvalidDataException("Source annual matrix contains extra rows.");
         }
-        finally { foreach (var writer in writers) writer.Dispose(); foreach (var reader in daylightReaders) reader.Dispose(); }
+        finally { foreach (var writer in writers) writer.Dispose(); foreach (var reader in daylightReaders) reader.Dispose(); foreach (var reader in electricReaders) reader.Dispose(); }
         foreach (var part in combined.Parts) File.WriteAllText(Path.Combine(root, part.StateFile), combined.RunId.ToString("N") + " CommandsSucceeded");
         AnnualPartStatus.RequireComplete(root, combined);
         return root;

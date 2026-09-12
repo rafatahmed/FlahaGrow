@@ -48,25 +48,25 @@ public sealed class RadianceGoo : SetupGoo<RadianceStatus>
 
 public sealed class PathsParameter : GH_Param<PathsGoo>
 {
-    public PathsParameter() : base("Resolved Paths", "Paths", "Resolved project locations.", "FlahaGrow", "Setup", GH_ParamAccess.item) { }
+    public PathsParameter() : base("Resolved Paths", "Paths", "Resolved project locations.", "FlahaGrow", "00 Setup", GH_ParamAccess.item) { }
     public override Guid ComponentGuid => new("ac523fea-16c1-4501-b8e3-eb39a575215c");
     public override GH_Exposure Exposure => GH_Exposure.hidden;
 }
 public sealed class ProjectParameter : GH_Param<ProjectGoo>
 {
-    public ProjectParameter() : base("Project Context", "Project", "Opened FlahaGrow project.", "FlahaGrow", "Setup", GH_ParamAccess.item) { }
+    public ProjectParameter() : base("Project Context", "Project", "Opened FlahaGrow project.", "FlahaGrow", "00 Setup", GH_ParamAccess.item) { }
     public override Guid ComponentGuid => new("8be5c7f1-d559-4a84-ac4b-94ea047a7868");
     public override GH_Exposure Exposure => GH_Exposure.hidden;
 }
 public sealed class AnalysisParameter : GH_Param<AnalysisGoo>
 {
-    public AnalysisParameter() : base("Analysis Context", "Analysis", "Opened FlahaGrow analysis.", "FlahaGrow", "Setup", GH_ParamAccess.item) { }
+    public AnalysisParameter() : base("Analysis Context", "Analysis", "Opened FlahaGrow analysis.", "FlahaGrow", "00 Setup", GH_ParamAccess.item) { }
     public override Guid ComponentGuid => new("8cce8328-7691-4c36-81e6-d968260841b8");
     public override GH_Exposure Exposure => GH_Exposure.hidden;
 }
 public sealed class RadianceParameter : GH_Param<RadianceGoo>
 {
-    public RadianceParameter() : base("Radiance Environment", "Radiance", "Checked Radiance installation.", "FlahaGrow", "Setup", GH_ParamAccess.item) { }
+    public RadianceParameter() : base("Radiance Environment", "Radiance", "Checked Radiance installation.", "FlahaGrow", "00 Setup", GH_ParamAccess.item) { }
     public override Guid ComponentGuid => new("bda63116-0a69-489c-ab37-24d1f6b61155");
     public override GH_Exposure Exposure => GH_Exposure.hidden;
 }

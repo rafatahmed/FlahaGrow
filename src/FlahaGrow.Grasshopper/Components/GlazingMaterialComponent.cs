@@ -12,7 +12,7 @@ public sealed class GlazingMaterialComponent : FlahaGrowComponent
 {
     private string? selected;
     public GlazingMaterialComponent()
-        : base("Glazing Material", "Glazing Mat", "Selects a Radiance glazing modifier and reports its visual properties.", "FlahaGrow", "Materials")
+        : base("Glazing Material", "Glazing Mat", "Selects a Radiance glazing modifier and reports its visual properties.", "FlahaGrow", "01 Materials")
     {
     }
 
@@ -44,22 +44,15 @@ public sealed class GlazingMaterialComponent : FlahaGrowComponent
         }
         catch (Exception exception) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, exception.Message); return; }
 
-        var rows = Directory.EnumerateFiles(folder, "*.rad").Select(Parse).OrderBy(row => row.Name, StringComparer.OrdinalIgnoreCase).ToList();
-        using var form = new Form { Text = "FlahaGrow Radiance Glazing", Width = 950, Height = 600, StartPosition = FormStartPosition.CenterScreen };
-        using var grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, MultiSelect = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect, AllowUserToAddRows = false, RowHeadersVisible = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill };
-        foreach (var title in new[] { "Glazing", "R", "G", "B", "VLT", "VLR%", "Specularity", "Roughness" }) grid.Columns.Add(title, title);
-        foreach (var row in rows)
+        if (!string.IsNullOrWhiteSpace(selected = MaterialSelectionDialog.SelectGlazing(folder, () =>
+            Directory.EnumerateFiles(folder, "*.rad")
+                .Select(Parse)
+                .OrderBy(row => string.IsNullOrEmpty(row.Name) || char.IsDigit(row.Name[0]))
+                .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(row => new MaterialTableRow(row.Name,
+                    new[] { MaterialSelectionDialog.DisplayName(row.Name), row.R, row.G, row.B, row.Vlt, row.Vlr, row.Specularity, row.Roughness },
+                    $"RGB({row.R}, {row.G}, {row.B}) | VLT: {row.Vlt}% | VLR: {row.Vlr}%")))))
         {
-            var index = grid.Rows.Add(row.Name, row.R, row.G, row.B, row.Vlt, row.Vlr, row.Specularity, row.Roughness);
-            grid.Rows[index].Tag = row.Name;
-        }
-        var select = new Button { Text = "Select", Dock = DockStyle.Bottom, Height = 36, DialogResult = DialogResult.OK };
-        form.Controls.Add(grid);
-        form.Controls.Add(select);
-        form.AcceptButton = select;
-        if (form.ShowDialog() == DialogResult.OK && grid.SelectedRows.Count > 0)
-        {
-            selected = grid.SelectedRows[0].Tag as string;
             dataAccess.SetData(0, selected);
         }
     }

@@ -10,7 +10,7 @@ public sealed class CombineAnnualLightingComponent : FlahaGrowComponent
     private readonly ActionLatch latch = new();
     private string? lastKey;
     private string? lastFolder;
-    public CombineAnnualLightingComponent() : base("Combine Annual Lighting", "Daylight + Electric", "Adds matching completed daylight and electric annual runs into a new manifest-owned result.", "FlahaGrow", "Annual") { }
+    public CombineAnnualLightingComponent() : base("Combine Annual Lighting", "Daylight + Electric", "Adds matching completed daylight and electric annual runs into a new manifest-owned result.", "FlahaGrow", "03 Annual") { }
     public override Guid ComponentGuid => new("9f5f9a71-0ec2-4fb7-a481-49625f0871f2");
     protected override void RegisterInputParams(GH_InputParamManager p)
     {

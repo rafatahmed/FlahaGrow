@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FlahaGrow.Core.Annual;
+using FlahaGrow.Core.PlantLight;
+using Grasshopper.Kernel.Types;
 
 namespace FlahaGrow.Grasshopper.Components;
 
@@ -67,15 +69,20 @@ internal static class AnnualCacheData
     }
     internal static double Factor(object? value)
     {
+        if (value is GH_ObjectWrapper wrapper) return Factor(wrapper.Value);
+        if (value is GH_Number number) return PlantLightMath.NonNegative(number.Value, "Factor");
+        if (value is GH_String textGoo) return Factor(textGoo.Value);
         if (value is null) return .0185;
-        if (value is IConvertible convertible && value is not string) { try { return convertible.ToDouble(System.Globalization.CultureInfo.InvariantCulture); } catch { } }
         var text = value.ToString()?.Trim().ToLowerInvariant() ?? string.Empty;
-        return text switch { "electric" or "elec" or "electriconly" or "electric_light" or "electriclighting" => .015, "sunonly" or "sun" or "sunlight" => .0205, "skyonly" or "sky" => .0135, _ when double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var factor) => factor, _ => .0185 };
+        var parsed = text switch { "electric" or "elec" or "electriconly" or "electric_light" or "electriclighting" => .015, "sunonly" or "sun" or "sunlight" => .0205, "skyonly" or "sky" => .0135, _ when double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var factor) => factor, _ => throw new ArgumentException("Unknown factor. Supply an explicit number or a recognized legacy preset.") };
+        return PlantLightMath.NonNegative(parsed, "Factor");
     }
     private static void RequireProvenance(string cachePath, Meta meta)
     {
         var folder = Path.GetDirectoryName(Path.GetFullPath(cachePath)) ?? throw new InvalidDataException("Annual cache folder is unavailable.");
         var manifest = AnnualRun.Read(folder);
+        if (meta.Sensors != manifest.Sensors || meta.Hours != manifest.Hours)
+            throw new InvalidDataException("Cache dimensions do not match the run manifest.");
         AnnualPartStatus.RequireComplete(folder, manifest);
         var parts = AnnualRun.RequireResults(folder, manifest);
         var signature = AnnualRun.HashFile(Path.Combine(folder, AnnualRun.ManifestName)) + ":" + string.Join(":", parts.Select(AnnualRun.HashFile));

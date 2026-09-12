@@ -11,7 +11,7 @@ public abstract class OpaqueMaterialSelectorComponent : FlahaGrowComponent
 {
     private string? selected;
     protected OpaqueMaterialSelectorComponent(string name, string nickname, string description, Guid id)
-        : base(name, nickname, description, "FlahaGrow", "Materials") => ComponentId = id;
+        : base(name, nickname, description, "FlahaGrow", "01 Materials") => ComponentId = id;
 
     private Guid ComponentId { get; }
     public override Guid ComponentGuid => ComponentId;
@@ -42,7 +42,7 @@ public abstract class OpaqueMaterialSelectorComponent : FlahaGrowComponent
         }
         catch (Exception exception) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, exception.Message); return; }
 
-        if (!string.IsNullOrWhiteSpace(selected = MaterialSelectionDialog.Select(folder)))
+        if (!string.IsNullOrWhiteSpace(selected = MaterialSelectionDialog.SelectOpaque(folder)))
         {
             dataAccess.SetData(0, selected);
         }
@@ -81,26 +81,73 @@ public sealed class ConcreteMaterialComponent : OpaqueMaterialSelectorComponent
 
 internal static class MaterialSelectionDialog
 {
-    public static string? Select(string folder)
+    private static readonly string[] OpaqueColumns = { "Material", "R", "G", "B", "Specularity", "Roughness", "VLR" };
+
+    internal static string? SelectOpaque(string folder) => Select(
+        "FlahaGrowRadiance Material",
+        folder,
+        "Select a material!",
+        "RGB(0.00, 0.00, 0.00) | VLR: 0.0%",
+        OpaqueColumns,
+        () => Directory.EnumerateFiles(folder, "*.rad")
+            .Select(Parse)
+            .OrderBy(row => string.IsNullOrEmpty(row.Name) || char.IsDigit(row.Name[0]))
+            .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(row => new MaterialTableRow(row.Name,
+                new[] { DisplayName(row.Name), row.R, row.G, row.B, row.Specularity, row.Roughness, row.Vlr },
+                $"RGB({row.R}, {row.G}, {row.B}) | VLR: {row.Vlr}%"))
+            .ToList());
+
+    internal static string? SelectGlazing(string folder, Func<IEnumerable<MaterialTableRow>> loadRows) => Select(
+        "FlahaGrowRadiance Glazing",
+        folder,
+        "Select a glazing!",
+        "RGB(0.00, 0.00, 0.00) | VLT: 0.0% | VLR: 0.0%",
+        new[] { "Glazing", "R", "G", "B", "VLT", "VLR%", "Specularity", "Roughness" },
+        () => loadRows().ToList());
+
+    private static string? Select(string title, string folder, string initialName, string initialInfo, IReadOnlyList<string> columns, Func<List<MaterialTableRow>> loadRows)
     {
-        var rows = Directory.EnumerateFiles(folder, "*.rad")
-            .Select(path => Parse(path))
-            .OrderBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        using var form = new Form { Text = "FlahaGrow Radiance Material", Width = 900, Height = 600, StartPosition = FormStartPosition.CenterScreen };
-        using var grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, MultiSelect = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect, AllowUserToAddRows = false, RowHeadersVisible = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill };
-        foreach (var title in new[] { "Material", "R", "G", "B", "Specularity", "Roughness", "VLR" }) grid.Columns.Add(title, title);
-        foreach (var row in rows)
+        using var form = new Form { Text = title, Width = 1500, Height = 850, StartPosition = FormStartPosition.CenterScreen, BackColor = System.Drawing.Color.White };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1, BackColor = System.Drawing.Color.White };
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 300)); layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        var top = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, BackColor = System.Drawing.Color.White };
+        top.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300)); top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); top.RowStyles.Add(new RowStyle(SizeType.Percent, 80)); top.RowStyles.Add(new RowStyle(SizeType.Percent, 20));
+        var preview = new PictureBox { Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, BackColor = System.Drawing.Color.White };
+        var name = new Label { Text = initialName, Dock = DockStyle.Fill, TextAlign = System.Drawing.ContentAlignment.BottomLeft, Font = new System.Drawing.Font("Segoe UI", 20, System.Drawing.FontStyle.Bold) };
+        var info = new Label { Text = initialInfo, Dock = DockStyle.Fill, TextAlign = System.Drawing.ContentAlignment.TopLeft, Font = new System.Drawing.Font("Segoe UI", 10) };
+        top.Controls.Add(preview, 0, 0); top.Controls.Add(name, 1, 0); top.Controls.Add(info, 1, 1);
+        var grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, MultiSelect = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect, AllowUserToAddRows = false, AllowUserToResizeRows = false, RowHeadersVisible = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, BackgroundColor = System.Drawing.Color.White, GridColor = System.Drawing.Color.LightGray, CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal };
+        grid.ColumnHeadersDefaultCellStyle.Font = new System.Drawing.Font("Segoe UI", 10, System.Drawing.FontStyle.Bold); grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.EnableResizing; grid.ColumnHeadersHeight = 40;
+        foreach (var column in columns) grid.Columns.Add(column, column);
+        if (grid.Columns.Count > 0) grid.Columns[0].Width = 80;
+        void Load()
         {
-            var index = grid.Rows.Add(row.Name, row.R, row.G, row.B, row.Specularity, row.Roughness, row.Vlr);
-            grid.Rows[index].Tag = row.Name;
+            grid.Rows.Clear(); name.Text = initialName; info.Text = initialInfo; preview.Image?.Dispose(); preview.Image = null;
+            foreach (var row in loadRows()) { var index = grid.Rows.Add(row.Cells); grid.Rows[index].Tag = row; }
         }
-        var select = new Button { Text = "Select", Dock = DockStyle.Bottom, Height = 36, DialogResult = DialogResult.OK };
-        form.Controls.Add(grid);
-        form.Controls.Add(select);
-        form.AcceptButton = select;
-        return form.ShowDialog() == DialogResult.OK && grid.SelectedRows.Count > 0 ? grid.SelectedRows[0].Tag as string : null;
+        void UpdatePreview()
+        {
+            if (grid.SelectedRows.Count == 0 || grid.SelectedRows[0].Tag is not MaterialTableRow row) return;
+            name.Text = DisplayName(row.Modifier); info.Text = row.Info;
+            preview.Image?.Dispose(); preview.Image = null;
+            var bitmap = Path.Combine(folder, row.Modifier + "_b.bmp");
+            if (File.Exists(bitmap)) { using var image = System.Drawing.Image.FromFile(bitmap); preview.Image = new System.Drawing.Bitmap(image); }
+        }
+        grid.SelectionChanged += (_, _) => UpdatePreview();
+        var buttons = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Padding = new Padding(8, 6, 8, 6) };
+        buttons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 80)); buttons.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 1)); buttons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
+        var select = new Button { Text = "Select", Dock = DockStyle.Fill, MinimumSize = new System.Drawing.Size(120, 28) };
+        var reload = new Button { Text = "Reload", Dock = DockStyle.Fill, MinimumSize = new System.Drawing.Size(120, 28) };
+        select.Click += (_, _) => { if (grid.SelectedRows.Count > 0) form.DialogResult = DialogResult.OK; };
+        reload.Click += (_, _) => Load();
+        buttons.Controls.Add(select, 0, 0); buttons.Controls.Add(reload, 2, 0);
+        layout.Controls.Add(top, 0, 0); layout.Controls.Add(grid, 0, 1); layout.Controls.Add(buttons, 0, 2); form.Controls.Add(layout); form.AcceptButton = select;
+        Load(); var result = form.ShowDialog(); preview.Image?.Dispose();
+        return result == DialogResult.OK && grid.SelectedRows.Count > 0 && grid.SelectedRows[0].Tag is MaterialTableRow selected ? selected.Modifier : null;
     }
+
+    internal static string DisplayName(string modifier) => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(modifier.Replace("_", " ").ToLowerInvariant());
 
     private static MaterialRow Parse(string path)
     {
@@ -121,3 +168,5 @@ internal static class MaterialSelectionDialog
 
     private sealed record MaterialRow(string Name, string R, string G, string B, string Specularity, string Roughness, string Vlr);
 }
+
+internal sealed record MaterialTableRow(string Modifier, string[] Cells, string Info);

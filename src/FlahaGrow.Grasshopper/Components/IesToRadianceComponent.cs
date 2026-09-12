@@ -11,7 +11,7 @@ namespace FlahaGrow.Grasshopper.Components;
 /// <summary>Runs ies2rad and applies the legacy three-channel RGB normalization.</summary>
 public sealed class IesToRadianceComponent : FlahaGrowComponent
 {
-    public IesToRadianceComponent() : base("IES to Radiance", "IES→Rad", "Converts an IES luminaire to Radiance files and applies normalized RGB channels.", "FlahaGrow", "Electric Light") { }
+    public IesToRadianceComponent() : base("IES to Radiance", "IES→Rad", "Converts an IES luminaire to Radiance files and applies normalized RGB channels.", "FlahaGrow", "04 Electric Light") { }
     public override Guid ComponentGuid => new("e64e15f4-7cee-48b2-a232-2064d3a9e602");
 
     protected override void RegisterInputParams(GH_InputParamManager parameters)

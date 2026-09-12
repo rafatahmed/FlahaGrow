@@ -8,7 +8,7 @@ namespace FlahaGrow.Grasshopper.Components;
 /// <summary>Reports the latest stage written by each annual Radiance batch job.</summary>
 public sealed class AnnualSimulationProgressComponent : FlahaGrowComponent
 {
-    public AnnualSimulationProgressComponent() : base("Annual Simulation Progress", "Annual Progress", "Reads the progress logs written by Annual Simulation. Attach a Grasshopper Timer to Refresh for live updates.", "FlahaGrow", "Annual") { }
+    public AnnualSimulationProgressComponent() : base("Annual Simulation Progress", "Annual Progress", "Reads the progress logs written by Annual Simulation. Attach a Grasshopper Timer to Refresh for live updates.", "FlahaGrow", "03 Annual") { }
     public override Guid ComponentGuid => new("1a2d08d7-6d3e-459e-a2c2-62636cbbaf24");
     protected override void RegisterInputParams(GH_InputParamManager p)
     {

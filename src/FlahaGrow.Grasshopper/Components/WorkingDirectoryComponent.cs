@@ -16,7 +16,7 @@ public sealed class WorkingDirectoryComponent : FlahaGrowComponent
     };
 
     public WorkingDirectoryComponent()
-        : base("Working Directory", "Work Dir", "Creates the FlahaGrow simulation working-directory layout.", "FlahaGrow", "Setup")
+        : base("Working Directory", "Work Dir", "Creates the FlahaGrow simulation working-directory layout.", "FlahaGrow", "00 Setup")
     {
     }
 

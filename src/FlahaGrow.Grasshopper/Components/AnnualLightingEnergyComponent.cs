@@ -8,7 +8,7 @@ namespace FlahaGrow.Grasshopper.Components;
 public sealed class AnnualLightingEnergyComponent : FlahaGrowComponent
 {
     public AnnualLightingEnergyComponent()
-        : base("Lighting Energy", "Energy", "Calculates lighting energy use from a power schedule.", "FlahaGrow", "Metrics")
+        : base("Lighting Energy", "Energy", "Calculates lighting energy use from a power schedule.", "FlahaGrow", "07 Energy")
     {
     }
 

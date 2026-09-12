@@ -14,7 +14,7 @@ public sealed class SimulationPathsComponent : FlahaGrowComponent
             "Paths",
             "Creates a project workspace and resolves the FlahaGrow material, glazing, and luminaire library paths.",
             "FlahaGrow",
-            "Setup")
+            "00 Setup")
     {
     }
 

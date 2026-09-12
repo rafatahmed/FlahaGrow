@@ -13,7 +13,7 @@ public sealed class IesLuminaireSelectorComponent : FlahaGrowComponent
 {
     private string? selectedPath;
     private string? selectedName;
-    public IesLuminaireSelectorComponent() : base("Select IES Luminaire", "IES Select", "Selects an IES grow-light luminaire.", "FlahaGrow", "Electric Light") { }
+    public IesLuminaireSelectorComponent() : base("Select IES Luminaire", "IES Select", "Selects an IES grow-light luminaire.", "FlahaGrow", "04 Electric Light") { }
     public override Guid ComponentGuid => new("492e14e7-163e-4c2a-a6d8-c44184da664d");
 
     protected override void RegisterInputParams(GH_InputParamManager parameters)

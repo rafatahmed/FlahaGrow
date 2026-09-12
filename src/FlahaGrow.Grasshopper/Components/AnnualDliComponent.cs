@@ -1,3 +1,4 @@
+using FlahaGrow.Core.PlantLight;
 using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components;
@@ -7,10 +8,9 @@ namespace FlahaGrow.Grasshopper.Components;
 /// </summary>
 public sealed class AnnualDliComponent : FlahaGrowComponent
 {
-    private const int DaysPerYear = 365;
 
     public AnnualDliComponent()
-        : base("Annual DLI", "DLI", "Converts an hourly annual PPFD series into 365 daily light integral values.", "FlahaGrow", "Metrics")
+        : base("Annual DLI", "DLI", "Converts an hourly annual PPFD series into 365 daily light integral values.", "FlahaGrow", "06 DLI")
     {
     }
 
@@ -38,39 +38,12 @@ public sealed class AnnualDliComponent : FlahaGrowComponent
         }
 
         dataAccess.GetData(1, ref timestepSeconds);
-        if (timestepSeconds <= 0)
+        try
         {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Timestep must be greater than zero.");
-            return;
+            var values = PlantLightMath.AnnualDli(ppfd, timestepSeconds);
+            dataAccess.SetDataList(0, values);
+            dataAccess.SetData(1, values.Average());
         }
-
-        if (ppfd.Any(value => value < 0))
-        {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Hourly PPFD values must be zero or greater.");
-            return;
-        }
-
-        var samplesPerDay = 86400d / timestepSeconds;
-        if (Math.Abs(samplesPerDay - Math.Round(samplesPerDay)) > 1e-9)
-        {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Timestep must divide one day exactly.");
-            return;
-        }
-        var samples = checked((int)Math.Round(samplesPerDay));
-        var expected = checked(DaysPerYear * samples);
-        if (ppfd.Count != expected)
-        {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"PPFD contains {ppfd.Count} samples; expected {expected} for a 365-day year at timestep {timestepSeconds:G} seconds.");
-            return;
-        }
-        var dailyDli = new List<double>(DaysPerYear);
-        for (var day = 0; day < DaysPerYear; day++)
-        {
-            var dailyPpfdSeconds = ppfd.Skip(day * samples).Take(samples).Sum() * timestepSeconds;
-            dailyDli.Add(dailyPpfdSeconds / 1_000_000.0);
-        }
-
-        dataAccess.SetDataList(0, dailyDli);
-        dataAccess.SetData(1, dailyDli.Average());
+        catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
     }
 }

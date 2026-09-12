@@ -7,7 +7,7 @@ namespace FlahaGrow.Grasshopper.Components;
 public sealed class RadianceVersionComponent : FlahaGrowComponent
 {
     public RadianceVersionComponent()
-        : base("Radiance Version", "Radiance Ver", "Returns the installed Radiance rcontrib version.", "FlahaGrow", "Setup")
+        : base("Radiance Version", "Radiance Ver", "Returns the installed Radiance rcontrib version.", "FlahaGrow", "00 Setup")
     {
     }
 

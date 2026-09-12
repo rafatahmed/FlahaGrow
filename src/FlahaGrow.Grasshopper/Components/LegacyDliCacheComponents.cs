@@ -1,3 +1,4 @@
+using FlahaGrow.Core.PlantLight;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
@@ -12,7 +13,7 @@ namespace FlahaGrow.Grasshopper.Components;
 /// </summary>
 public sealed class DliHourlyComponent : FlahaGrowComponent
 {
-    public DliHourlyComponent() : base("DLI Hourly", "DLI Hourly", "Returns the selected day's total and hourly DLI for every sensor from an annual result cache.", "FlahaGrow", "DLI") { }
+    public DliHourlyComponent() : base("DLI Hourly", "DLI Hourly", "Returns the selected day's total and hourly DLI for every sensor from an annual result cache.", "FlahaGrow", "06 DLI") { }
     public override Guid ComponentGuid => new("d4f97934-9fd5-4d9c-a6e0-b550d0c9cedf");
 
     protected override void RegisterInputParams(GH_InputParamManager p)
@@ -51,8 +52,8 @@ public sealed class DliHourlyComponent : FlahaGrowComponent
                 {
                     if (item * day.Sensors + sensor < day.Values.Count)
                     {
-                        var dli = day.Values[item * day.Sensors + sensor] * factor * 3600.0 / 1_000_000.0;
-                        total += dli;
+                        var dli = PlantLightMath.PhotonIntegral(PlantLightMath.Ppfd(day.Values[item * day.Sensors + sensor], factor), 3600);
+                        total = PlantLightMath.NonNegative(total + dli, "DLI");
                         hourlyTree.Append(new GH_Number(dli), path);
                     }
                     else
@@ -82,7 +83,7 @@ public sealed class DliHourlyComponent : FlahaGrowComponent
 /// </summary>
 public sealed class DliEachSensorComponent : FlahaGrowComponent
 {
-    public DliEachSensorComponent() : base("DLI Each Sensor", "DLI Sensor", "Returns daily DLI for one annual-cache sensor and optionally an upper-hemisphere marker.", "FlahaGrow", "DLI") { }
+    public DliEachSensorComponent() : base("DLI Each Sensor", "DLI Sensor", "Returns daily DLI for one annual-cache sensor and optionally an upper-hemisphere marker.", "FlahaGrow", "06 DLI") { }
     public override Guid ComponentGuid => new("a77d7b17-274a-444b-af3d-063144dcb3fa");
 
     protected override void RegisterInputParams(GH_InputParamManager p)
@@ -133,7 +134,7 @@ public sealed class DliEachSensorComponent : FlahaGrowComponent
             for (var day = 0; day < days; day++)
             {
                 var total = 0.0;
-                for (var hour = 0; hour < 24; hour++) total += lux[day * 24 + hour] * factor * 3600.0 / 1_000_000.0;
+                for (var hour = 0; hour < 24; hour++) total = PlantLightMath.NonNegative(total + PlantLightMath.PhotonIntegral(PlantLightMath.Ppfd(lux[day * 24 + hour], factor), 3600), "DLI");
                 dli.Add(total);
             }
             da.SetDataList(0, dli);

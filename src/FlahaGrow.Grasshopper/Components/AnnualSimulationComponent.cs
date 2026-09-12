@@ -19,7 +19,7 @@ public sealed class AnnualSimulationComponent : FlahaGrowComponent
     private string? lastRunFolder;
     private string? lastRunKey;
 
-    public AnnualSimulationComponent() : base("Annual Simulation", "Annual Sim", "Prepares and launches the FlahaGrow annual Radiance daylight simulation.", "FlahaGrow", "Annual") { }
+    public AnnualSimulationComponent() : base("Annual Simulation", "Annual Sim", "Prepares and launches the FlahaGrow annual Radiance daylight simulation.", "FlahaGrow", "03 Annual") { }
     public override Guid ComponentGuid => new("ca2ce6ef-a0c8-4d98-87a3-2adf2a91ca45");
     protected override void RegisterInputParams(GH_InputParamManager p)
     {

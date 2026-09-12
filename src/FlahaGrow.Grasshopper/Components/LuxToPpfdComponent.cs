@@ -1,3 +1,4 @@
+using FlahaGrow.Core.PlantLight;
 using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components;
@@ -15,7 +16,7 @@ public sealed class LuxToPpfdComponent : FlahaGrowComponent
             "Lux→PPFD",
             "Converts illuminance (lux) to PPFD using a spectrum-specific conversion factor.",
             "FlahaGrow",
-            "Metrics")
+            "05 PPFD")
     {
     }
 
@@ -49,18 +50,7 @@ public sealed class LuxToPpfdComponent : FlahaGrowComponent
 
         dataAccess.GetData(1, ref conversionFactor);
 
-        if (illuminance < 0)
-        {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Illuminance must be zero or greater.");
-            return;
-        }
-
-        if (conversionFactor < 0)
-        {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Conversion factor must be zero or greater.");
-            return;
-        }
-
-        dataAccess.SetData(0, illuminance * conversionFactor);
+        try { dataAccess.SetData(0, PlantLightMath.Ppfd(illuminance, conversionFactor)); }
+        catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
     }
 }

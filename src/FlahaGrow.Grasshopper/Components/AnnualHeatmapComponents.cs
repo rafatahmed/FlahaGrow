@@ -10,7 +10,7 @@ public abstract class AnnualHeatmapComponent : FlahaGrowComponent
 {
     private readonly string defaultTitle;
     private static readonly HashSet<Form> OpenForms = new();
-    protected AnnualHeatmapComponent(string name, string nick, string description, string title, Guid guid) : base(name, nick, description, "FlahaGrow", "Annual") { defaultTitle = title; Id = guid; }
+    protected AnnualHeatmapComponent(string name, string nick, string description, string title, Guid guid) : base(name, nick, description, "FlahaGrow", "03 Annual") { defaultTitle = title; Id = guid; }
     private Guid Id { get; }
     public override Guid ComponentGuid => Id;
     protected override void RegisterInputParams(GH_InputParamManager p)
