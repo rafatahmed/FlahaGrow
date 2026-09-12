@@ -238,5 +238,6 @@ The previous five-input Spectral Profile is now **Custom Spectral Profile**; its
 input order and outputs are unchanged. Use it for a measured custom CSV or explicit
 numeric assumption. Older instructions below describing CSV/Factor inputs refer to
 this custom component. The new one-input selector has a new GUID and does not replace
-saved custom-profile wiring. The selector addition has not yet been deployed or
-visually accepted in Rhino; the earlier deployment record describes the previous build.
+saved custom-profile wiring. The selector and timing corrections are now
+[locally deployed](../releases/icons-timing-deployment-2026-09-12.md);
+live Rhino acceptance remains pending.
