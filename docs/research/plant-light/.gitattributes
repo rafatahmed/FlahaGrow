@@ -1,0 +1,2 @@
+# Preserve exact publisher bytes so recorded checksums survive checkout.
+data/** -text -whitespace

@@ -1,0 +1,585 @@
+{
+  "method": "research-linear-1nm-trapezoid-v1",
+  "par_band_nm": [
+    400,
+    700
+  ],
+  "photopic_integration_nm": [
+    360,
+    830
+  ],
+  "checks": "passed: interpolation, band endpoints, scale invariance, DLI and six invalid-input cases",
+  "files": [
+    {
+      "file": "data/cie/CIE_illum_D55.csv",
+      "md5": "8b5678358f265567a0759b9800f17d7f",
+      "sha256": "3e5aa1a8d5514df1928effef1615ab90e16c9a368ccfe513372cd8556c37bf4b",
+      "doi": "10.25039/CIE.DS.qewfb3kp",
+      "published_checksums": {
+        "md5": "8b5678358f265567a0759b9800f17d7f",
+        "sha256": "3e5aa1a8d5514df1928effef1615ab90e16c9a368ccfe513372cd8556c37bf4b"
+      },
+      "md5_matches": true,
+      "sha256_matches": true
+    },
+    {
+      "file": "data/cie/CIE_illum_D55.csv_metadata.json",
+      "md5": "908297f15d7e03c22b14424e085a970f",
+      "sha256": "b251e00e84528fb947c44d951964c27ffee9835097dbc8502652cbf7a7114385"
+    },
+    {
+      "file": "data/cie/CIE_illum_D75.csv",
+      "md5": "fc2ae36ece39ad1729696ab2833bd013",
+      "sha256": "573a08831f2bcdf18a8e333490049e6d0fabaf1d1c0abbc2a49d6247a939b62d",
+      "doi": "10.25039/CIE.DS.9fvcmrk4",
+      "published_checksums": {
+        "md5": "fc2ae36ece39ad1729696ab2833bd013",
+        "sha256": "573a08831f2bcdf18a8e333490049e6dfabaf1d1cabbc2a49d6247a939b62d"
+      },
+      "md5_matches": true,
+      "sha256_matches": false
+    },
+    {
+      "file": "data/cie/CIE_illum_D75.csv_metadata.json",
+      "md5": "2dd3fc1a94d4e97614c116976d5dd6d3",
+      "sha256": "b9531c5383d6a1346c8f1289795b4894dfe4af659f7af42a64a93765e715c8bd"
+    },
+    {
+      "file": "data/cie/CIE_illum_HPs.csv",
+      "md5": "423e996fd3ee17eaf783633e4fd2f62c",
+      "sha256": "035e09d62b27f4b1e362ff1ba99a50235f0d7886c2781c50d49851b6e4bb4552",
+      "doi": "10.25039/CIE.DS.f6rvvnev",
+      "published_checksums": {
+        "md5": "423e996fd3ee17eaf783633e4fd2f62c",
+        "sha256": "035e09d62b27f4b1e362ff1ba99a50235fd7886c2781c50d49851b6e4bb4552"
+      },
+      "md5_matches": true,
+      "sha256_matches": false
+    },
+    {
+      "file": "data/cie/CIE_illum_HPs.csv_metadata.json",
+      "md5": "33d6ef7a0d6f66c0292484109ca51dbd",
+      "sha256": "e6af71e51f171276a6b2cda73619f6495fb90fdce6754a6cc94a6354bf672cab"
+    },
+    {
+      "file": "data/cie/CIE_illum_LEDs_1nm.csv",
+      "md5": "99d1bc3974902d5e02e4c3fe539bea3d",
+      "sha256": "2a065526e1502f138d5b96aa8c9b337320e08667aac028ab5ad428bf1179a4b7",
+      "doi": "10.25039/CIE.DS.dhcw57sd",
+      "published_checksums": {
+        "md5": "99d1bc3974902d5e02e4c3fe539bea3d",
+        "sha256": "2a065526e1502f138d5b96aa8c9b337320e08667aac028ab5ad428bf1179a4b7"
+      },
+      "md5_matches": true,
+      "sha256_matches": true
+    },
+    {
+      "file": "data/cie/CIE_illum_LEDs_1nm.csv_metadata.json",
+      "md5": "2bbef54d1895e078ecc86e4cda6110b1",
+      "sha256": "8e95fe131cfff2534aa161846b1b7d113f74781338e85787104661b887f8ff48"
+    },
+    {
+      "file": "data/cie/CIE_sle_photopic.csv",
+      "md5": "f389958555461a7d9a7562145e8ca9c0",
+      "sha256": "ee5d5d17922ae645d4af52cacf6a50bdb9385749f9d2181ca312eb2b08febac2",
+      "doi": "10.25039/CIE.DS.dktna2s3",
+      "published_checksums": {
+        "md5": "f389958555461a7d9a7562145e8ca9c0",
+        "sha256": "ee5d5d17922ae645d4af52cacf6a50bdb9385749f9d2181ca312eb2b08febac2"
+      },
+      "md5_matches": true,
+      "sha256_matches": true
+    },
+    {
+      "file": "data/cie/CIE_sle_photopic.csv_metadata.json",
+      "md5": "b56e625687f5ef8d7403e8867b16e973",
+      "sha256": "e6786484f9c1d45b75e05156947382bf37519d1195d52571eaee8fc8d3d21840"
+    },
+    {
+      "file": "data/cie/CIE_std_illum_D65.csv",
+      "md5": "03d4eb9b837c60671627c946fb534deb",
+      "sha256": "e76f210bffff3d552ef7113025da5f325d5dfec200dd4b878b1a2f3a507032cb",
+      "doi": "10.25039/CIE.DS.hjfjmt59",
+      "published_checksums": {
+        "md5": "03d4eb9b837c60671627c946fb534deb",
+        "sha256": "e76f21bffff3d552ef7113025da5f325d5dfec200dd4b878b1a2f3a507032cb"
+      },
+      "md5_matches": true,
+      "sha256_matches": false
+    },
+    {
+      "file": "data/cie/CIE_std_illum_D65.csv_metadata.json",
+      "md5": "5c88d61f408486a28b189aefa43809dd",
+      "sha256": "de1ed36015fce537045791505f87f80eed5c508267af384f537ab94f29f01657"
+    },
+    {
+      "file": "data/horticulture/park-runkle-2018-s1.xlsx",
+      "md5": "994fdf47594930488dd7ff04aed2f63e",
+      "sha256": "cefd6f16975e3c3576f536e81e5a7bd2d5d5a36cb7ec0cffb60e0fa4506c7742"
+    },
+    {
+      "file": "data/horticulture/figshare-6946136.json",
+      "md5": "d8a60ace65f14405915c9169e1cd08b7",
+      "sha256": "e1098e162ca807b698b34863070a7d407e62b188e5f63de4aef36cb6940ea093"
+    }
+  ],
+  "profiles": [
+    {
+      "factor_umol_m2_s_per_lux": 0.017807910663344938,
+      "source_range_nm": [
+        300,
+        780
+      ],
+      "source_max_step_nm": 5,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_D55:1",
+      "label": "CIE Illuminant D55",
+      "data_file": "data/cie/CIE_illum_D55.csv",
+      "column_1based": 2,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.qewfb3kp",
+      "status": "reference candidate; not plugin-enabled",
+      "current_hardcoded_factor": 0.017833,
+      "hardcoded_minus_research_percent": 0.14088871585988816
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.01831996476722391,
+      "source_range_nm": [
+        300,
+        780
+      ],
+      "source_max_step_nm": 5,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_D75:1",
+      "label": "CIE Illuminant D75",
+      "data_file": "data/cie/CIE_illum_D75.csv",
+      "column_1based": 2,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.9fvcmrk4",
+      "status": "reference candidate; not plugin-enabled",
+      "current_hardcoded_factor": 0.018345,
+      "hardcoded_minus_research_percent": 0.1366554635567896
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.011649497079524498,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 5,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_HPs:1",
+      "label": "HP1",
+      "data_file": "data/cie/CIE_illum_HPs.csv",
+      "column_1based": 2,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.f6rvvnev",
+      "status": "reference candidate; not plugin-enabled",
+      "current_hardcoded_factor": 0.01164,
+      "hardcoded_minus_research_percent": -0.08152351521845125
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.019026709568433924,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 5,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_HPs:2",
+      "label": "HP2",
+      "data_file": "data/cie/CIE_illum_HPs.csv",
+      "column_1based": 3,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.f6rvvnev",
+      "status": "reference candidate; not plugin-enabled"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.014302836144636137,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 5,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_HPs:3",
+      "label": "HP3",
+      "data_file": "data/cie/CIE_illum_HPs.csv",
+      "column_1based": 4,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.f6rvvnev",
+      "status": "reference candidate; not plugin-enabled"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.014904130342363627,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 5,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_HPs:4",
+      "label": "HP4",
+      "data_file": "data/cie/CIE_illum_HPs.csv",
+      "column_1based": 5,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.f6rvvnev",
+      "status": "reference candidate; not plugin-enabled"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.016176807058188997,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 5,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_HPs:5",
+      "label": "HP5",
+      "data_file": "data/cie/CIE_illum_HPs.csv",
+      "column_1based": 6,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.f6rvvnev",
+      "status": "reference candidate; not plugin-enabled",
+      "current_hardcoded_factor": 0.01618,
+      "hardcoded_minus_research_percent": 0.019737775195793894
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.014909669131027797,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_LEDs_1nm:1",
+      "label": "LED-B1",
+      "data_file": "data/cie/CIE_illum_LEDs_1nm.csv",
+      "column_1based": 2,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.dhcw57sd",
+      "status": "reference candidate; not plugin-enabled"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.014725016211365695,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_LEDs_1nm:2",
+      "label": "LED-B2",
+      "data_file": "data/cie/CIE_illum_LEDs_1nm.csv",
+      "column_1based": 3,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.dhcw57sd",
+      "status": "reference candidate; not plugin-enabled"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.014334390659693715,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_LEDs_1nm:3",
+      "label": "LED-B3",
+      "data_file": "data/cie/CIE_illum_LEDs_1nm.csv",
+      "column_1based": 4,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.dhcw57sd",
+      "status": "reference candidate; not plugin-enabled"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.013950885666611235,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_LEDs_1nm:4",
+      "label": "LED-B4",
+      "data_file": "data/cie/CIE_illum_LEDs_1nm.csv",
+      "column_1based": 5,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.dhcw57sd",
+      "status": "reference candidate; not plugin-enabled"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.01440437417580209,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_LEDs_1nm:5",
+      "label": "LED-B5",
+      "data_file": "data/cie/CIE_illum_LEDs_1nm.csv",
+      "column_1based": 6,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.dhcw57sd",
+      "status": "reference candidate; not plugin-enabled"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.013645221942852299,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_LEDs_1nm:6",
+      "label": "LED-BH1",
+      "data_file": "data/cie/CIE_illum_LEDs_1nm.csv",
+      "column_1based": 7,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.dhcw57sd",
+      "status": "reference candidate; not plugin-enabled",
+      "current_hardcoded_factor": 0.013633,
+      "hardcoded_minus_research_percent": -0.08956939581845624
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.01651946071375029,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_LEDs_1nm:7",
+      "label": "LED-RGB1",
+      "data_file": "data/cie/CIE_illum_LEDs_1nm.csv",
+      "column_1based": 8,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.dhcw57sd",
+      "status": "reference candidate; not plugin-enabled"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.018848575191932518,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_LEDs_1nm:8",
+      "label": "LED-V1",
+      "data_file": "data/cie/CIE_illum_LEDs_1nm.csv",
+      "column_1based": 9,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.dhcw57sd",
+      "status": "reference candidate; not plugin-enabled"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.01768528544780194,
+      "source_range_nm": [
+        380,
+        780
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_illum_LEDs_1nm:9",
+      "label": "LED-V2",
+      "data_file": "data/cie/CIE_illum_LEDs_1nm.csv",
+      "column_1based": 10,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.dhcw57sd",
+      "status": "reference candidate; not plugin-enabled",
+      "current_hardcoded_factor": 0.017691,
+      "hardcoded_minus_research_percent": 0.03231246798320875
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.018018717046093483,
+      "source_range_nm": [
+        300,
+        830
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "complete",
+      "source_ppfd_umol_m2_s": null,
+      "source_illuminance_lux": null,
+      "id": "CIE_std_illum_D65:1",
+      "label": "S_D65(lambda)",
+      "data_file": "data/cie/CIE_std_illum_D65.csv",
+      "column_1based": 2,
+      "basis": "relative_energy",
+      "doi": "10.25039/CIE.DS.hjfjmt59",
+      "status": "reference candidate; not plugin-enabled",
+      "current_hardcoded_factor": 0.018043,
+      "hardcoded_minus_research_percent": 0.13476516582395792
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.01185684741556553,
+      "source_range_nm": [
+        400,
+        799
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": 161.16467305,
+      "source_illuminance_lux": 13592.540023617485,
+      "id": "park-runkle-2018:MW100",
+      "label": "MW100",
+      "data_file": "data/horticulture/park-runkle-2018-s1.xlsx",
+      "sheet": "Figure 1",
+      "source_cells": "B4:B403",
+      "basis": "photon_irradiance",
+      "doi": "10.6084/m9.figshare.6946136.v1",
+      "status": "research treatment; incomplete photopic coverage; not a fixture preset"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.014818613613089527,
+      "source_range_nm": [
+        400,
+        799
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": 159.42450815,
+      "source_illuminance_lux": 10758.395644325168,
+      "id": "park-runkle-2018:MW75R25",
+      "label": "MW75R25",
+      "data_file": "data/horticulture/park-runkle-2018-s1.xlsx",
+      "sheet": "Figure 1",
+      "source_cells": "C4:C403",
+      "basis": "photon_irradiance",
+      "doi": "10.6084/m9.figshare.6946136.v1",
+      "status": "research treatment; incomplete photopic coverage; not a fixture preset"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.022059435999910285,
+      "source_range_nm": [
+        400,
+        799
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": 159.586066125,
+      "source_illuminance_lux": 7234.367466405262,
+      "id": "park-runkle-2018:MW45R55",
+      "label": "MW45R55",
+      "data_file": "data/horticulture/park-runkle-2018-s1.xlsx",
+      "sheet": "Figure 1",
+      "source_cells": "D4:D403",
+      "basis": "photon_irradiance",
+      "doi": "10.6084/m9.figshare.6946136.v1",
+      "status": "research treatment; incomplete photopic coverage; not a fixture preset"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.03271705653920157,
+      "source_range_nm": [
+        400,
+        799
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": 158.985533875,
+      "source_illuminance_lux": 4859.408232048735,
+      "id": "park-runkle-2018:MW25R75",
+      "label": "MW25R75",
+      "data_file": "data/horticulture/park-runkle-2018-s1.xlsx",
+      "sheet": "Figure 1",
+      "source_cells": "E4:E403",
+      "basis": "photon_irradiance",
+      "doi": "10.6084/m9.figshare.6946136.v1",
+      "status": "research treatment; incomplete photopic coverage; not a fixture preset"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.08725328242709962,
+      "source_range_nm": [
+        400,
+        799
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": 162.1678953,
+      "source_illuminance_lux": 1858.5879039621432,
+      "id": "park-runkle-2018:B15R85",
+      "label": "B15R85",
+      "data_file": "data/horticulture/park-runkle-2018-s1.xlsx",
+      "sheet": "Figure 1",
+      "source_cells": "F4:F403",
+      "basis": "photon_irradiance",
+      "doi": "10.6084/m9.figshare.6946136.v1",
+      "status": "research treatment; incomplete photopic coverage; not a fixture preset"
+    },
+    {
+      "factor_umol_m2_s_per_lux": 0.017988970674519097,
+      "source_range_nm": [
+        400,
+        799
+      ],
+      "source_max_step_nm": 1,
+      "outside_source_range": "zero assumed; not measured",
+      "photopic_coverage": "truncated",
+      "source_ppfd_umol_m2_s": 159.530897,
+      "source_illuminance_lux": 8868.261552395064,
+      "id": "park-runkle-2018:B20G40R40",
+      "label": "B20G40R40",
+      "data_file": "data/horticulture/park-runkle-2018-s1.xlsx",
+      "sheet": "Figure 1",
+      "source_cells": "G4:G403",
+      "basis": "photon_irradiance",
+      "doi": "10.6084/m9.figshare.6946136.v1",
+      "status": "research treatment; incomplete photopic coverage; not a fixture preset"
+    }
+  ]
+}

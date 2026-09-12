@@ -9,7 +9,7 @@
 
 ## Validation before a change is merged
 
-For the shared Setup core, run `dotnet test tests/FlahaGrow.Core.Tests/FlahaGrow.Core.Tests.csproj --configuration Release` and `dotnet build FlahaGrow.sln --configuration Release`. The Windows path tests run outside Rhino. See [the Setup foundation notes](docs/setup-foundation.md) for implemented scope and host validation still required.
+For the shared Setup core, run `dotnet test tests/FlahaGrow.Core.Tests/FlahaGrow.Core.Tests.csproj --configuration Release` and `dotnet build FlahaGrow.sln --configuration Release`. The Windows path tests run outside Rhino. See [the Setup foundation notes](docs/archive/setup-foundation.md) for implemented scope and host validation still required.
 
 Run validation in the environment the component targets:
 
