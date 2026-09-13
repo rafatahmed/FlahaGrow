@@ -6,8 +6,7 @@ Component cleanup (2026-09-13): the compiled plugin contains 30 visible executab
 components and 206 registered ports. Category documents, README inventory, revision
 ledger and 23 component icons plus the logo match the built registrations. Eight
 typed parameter classes support registered wires; they are not executable components.
-The unused UTC port has been removed with a new selector GUID. This build has not
-been installed in Rhino. The 27 historical src/Code files are preserved at the user’s request, outside the compiled plugin. The 10 approved docs/archive files have been removed.
+The unused UTC port has been removed with a new selector GUID. This build was installed locally with Rhino closed; see the [deployment receipt](../releases/plugin-audit-deployment-2026-09-13.md). The 27 historical src/Code files are preserved at the user’s request, outside the compiled plugin. The 10 approved docs/archive files have been removed.
 
 Current validation (2026-09-13): 198 Core tests pass; the dedicated
 component runner checks registration for 30 components and the expanded
@@ -17,11 +16,11 @@ pipeline with hourly-integral tree ordering and shared spectral calculations.
 These checks do not establish physical accuracy, actual example wire migration or
 large-grid performance. See the [current workflow and limits](../workflows/plant-light-workflow.md).
 
-Deep-audit fixes cover process input/output deadlocks, fresh staged IES conversion, strict shared illuminance reads, finite numeric/geometry inputs and invalid plot attributes. Packaging now gates staging on Core tests, smoke checks and a fresh documentation/inventory audit. A local Yak package was built successfully; it was not installed or published.
+Deep-audit fixes cover process input/output deadlocks, fresh staged IES conversion, strict shared illuminance reads, finite numeric/geometry inputs and invalid plot attributes. Packaging now gates staging on Core tests, smoke checks and a fresh documentation/inventory audit. A local Yak package was built successfully; the matching assemblies were subsequently installed locally, with verified backups and checksums. The package was not published.
 
 Current source adds background cache loading/reuse, verified run-EPW timing,
 and data-bound plot attributes. See the [contract and migration guide](../workflows/result-weather-plot-contract.md).
-It is not yet deployed. A synthetic 13-sensor held-True test ran 100 warm loader
+Local deployment is recorded in the receipt above; live Rhino acceptance remains outstanding. A synthetic 13-sensor held-True test ran 100 warm loader
 solves in about 1 ms without rewriting the cache; this is not a full-model or
 Rhino UI benchmark. Downstream readers retain full content validation.
 

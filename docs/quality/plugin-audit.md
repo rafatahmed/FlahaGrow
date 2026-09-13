@@ -23,7 +23,7 @@ Runtime artwork contains 23 component images and the logo. Every embedded compon
 - Numeric Lux to PPFD requires a supplied factor. It no longer assumes a universal spectrum. Existing saved instances may retain previously stored numeric inputs; review their factor when rebuilding a definition.
 - Numerical-reference scripts require an explicit Radiance bin location. No fixed drive or user-home paths remain in the checked production C# or PowerShell tools.
 - Stable GUIDs, file-format names, units, the supported non-leap hourly axis, scientific coefficients and documented quality presets remain explicit code values. They are contracts and calculation inputs, not portable-path defects. This audit does not claim all literals should be removed.
-- Packaging source stages the plugin/Core pair, notices and library assets; it does not include the historical component scripts. Package installation and publishing were not performed.
+- Packaging source stages the plugin/Core pair, notices and library assets; it does not include the historical component scripts. The matching assemblies were subsequently installed locally; see the [deployment receipt](../releases/plugin-audit-deployment-2026-09-13.md). No package registry publication was performed.
 
 ## Deep audit fixes
 
@@ -42,7 +42,7 @@ Runtime artwork contains 23 component images and the logo. Every embedded compon
 ## Validation
 
 - Release build: zero warnings/errors.
-- Local Yak packaging: all gates passed and produced `artifacts/yak-staging/flahagrow-0.1.0-rh8_33-win.yak`. Its 86 entries contain byte-matching validated plugin/Core assemblies, with historical source and Rhino host assemblies excluded. Nothing was installed or published.
+- Local Yak packaging: all gates passed and produced `artifacts/yak-staging/flahagrow-0.1.0-rh8_33-win.yak`. Its 86 entries contain byte-matching validated plugin/Core assemblies, with historical source and Rhino host assemblies excluded. The matching assemblies were subsequently deployed locally as recorded in the deployment receipt; the Yak package was not published.
 - Documentation freshness: an intentionally stale smoke stamp was rejected, the original stamp was restored and the full audit passed again. Active documentation has no broken local file links.
 - Core: 198 passing tests, including explicit-location isolation and coherent executable selection.
 - Smoke runner: all 30 components complete XML archive round trips with identity, revision and port contracts retained; typed parameters and icons are covered.
@@ -56,6 +56,6 @@ Run the commands in [development and packaging](../architecture/plugin-developme
 
 `src/Code` remains historical reference material outside the compiled projects and package, as requested. No files in that directory were changed. Historical release receipts and source artwork are retained; they are not registered executable components.
 
-This build has not been installed in Rhino. Dialog behavior, document scheduling and actual canvas wiring after consolidation still require Rhino host acceptance. The real Radiance fixtures cover one bundled IES conversion and matrix operations; they do not establish all-fixture compatibility or physical PPFD accuracy for a study. Full numerical reference runs, spectral assumptions and model-specific acceptance remain separate checks.
+This build is installed in the local Grasshopper Libraries folder; see the [deployment receipt](../releases/plugin-audit-deployment-2026-09-13.md). Dialog behavior, document scheduling and actual canvas wiring after consolidation still require Rhino host acceptance. The real Radiance fixtures cover one bundled IES conversion and matrix operations; they do not establish all-fixture compatibility or physical PPFD accuracy for a study. Full numerical reference runs, spectral assumptions and model-specific acceptance remain separate checks.
 
 RAD/DAT publication is atomic per file, not a transaction over the set: a failure during final moves can leave a partially updated set. Cache readers retain full content validation; representative large-grid/storage performance remains unmeasured. Compile Luminaires accepts trusted Radiance command text and remains level-triggered; it was not redesigned as a scene parser. These limits are not certified by the component inventory audit.
