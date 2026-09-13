@@ -20,14 +20,14 @@ public sealed record RadianceRequest
         SearchPaths = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries),
         StandaloneLocations = new[]
         {
-            @"C:\Radiance",
+            Path.Combine(Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System))!, "Radiance"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Radiance"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Radiance")
         },
         LadybugLocations = new[]
         {
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ladybug_tools", "radiance"),
-            @"C:\ladybug_tools\radiance",
+            Path.Combine(Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System))!, "ladybug_tools", "radiance"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ladybug_tools", "radiance")
         }
     };
@@ -63,6 +63,15 @@ public sealed class RadianceDiscovery
     public const int MaximumCandidates = 128;
     private readonly IRadianceFiles files;
     public RadianceDiscovery(IRadianceFiles? files = null) => this.files = files ?? new RadianceFiles();
+
+    /// <summary>Resolve a coherent bin for a consumer's tools using the same bounded search as Setup.
+    /// An explicit location is authoritative; an incomplete or missing selection never falls back.</summary>
+    public string? FindBin(RadianceRequest request, params string[] requiredTools)
+    {
+        if (requiredTools.Length == 0) throw new ArgumentException("At least one executable is required.", nameof(requiredTools));
+        return Discover(request).Candidates.FirstOrDefault(candidate =>
+            requiredTools.All(tool => candidate.Executables.ContainsKey(tool)))?.BinFolder;
+    }
 
     public RadianceDiscoveryResult Discover(RadianceRequest request)
     {

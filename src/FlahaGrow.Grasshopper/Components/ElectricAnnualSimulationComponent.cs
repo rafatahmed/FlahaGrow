@@ -4,6 +4,7 @@ using FlahaGrow.Core.Annual;
 using FlahaGrow.Core.Operations;
 using FlahaGrow.Core.Projects;
 using FlahaGrow.Core.Radiance;
+using FlahaGrow.Core.PlantLight;
 using FlahaGrow.Grasshopper.Parameters;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
@@ -35,6 +36,7 @@ public sealed class ElectricAnnualSimulationComponent : FlahaGrowComponent
         p.AddTextParameter("Radiance bin folder", "Bin", "Optional Radiance bin folder. Leave blank for automatic detection.", GH_ParamAccess.item); p[6].Optional = true;
         p.AddParameter(new RadianceParameter(), "Radiance Environment", "Radiance", "Optional checked environment; when connected it must be ready for electric lighting and supplies exact executables.", GH_ParamAccess.item); p[7].Optional = true;
         p.AddTextParameter("Existing run folder", "Existing", "Optional manifest-owned completed electric annual run to reopen.", GH_ParamAccess.item); p[8].Optional = true;
+        p.AddParameter(new AnnualResultParameter(), "Schedule time reference", "Time Result", "Optional Load Annual Result → Result from the daylight study. Connecting declares that the 8760 dimming values use that verified weather calendar/local standard time. Snapshot is retained for automatic timing; no manual UTC.", GH_ParamAccess.item); p[9].Optional = true;
     }
     protected override void RegisterOutputParams(GH_OutputParamManager p)
     {
@@ -50,6 +52,14 @@ public sealed class ElectricAnnualSimulationComponent : FlahaGrowComponent
         da.GetDataList(3, points); da.GetData(4, ref detail); da.GetData(5, ref run); da.GetData(6, ref bin); da.GetData(7, ref radiance); da.GetData(8, ref existing);
         try
         {
+            var timeResult = new AnnualResultGoo(); string? weatherPath = null, weatherHash = null;
+            if (da.GetData(9, ref timeResult) && timeResult.IsValid)
+            {
+                if (timeResult.Value.Weather is null) throw new ArgumentException("Time Result has no verified weather calendar.");
+                weatherPath = Path.Combine(Path.GetDirectoryName(timeResult.Value.Result.CachePath)!, "weather.epw");
+                weatherHash = AnnualRun.HashFile(weatherPath);
+                if (weatherHash != timeResult.Value.Weather.SourceHash) throw new IOException("Time reference EPW changed. Reload its annual result.");
+            }
             if (!string.IsNullOrWhiteSpace(existing)) { Emit(da, Path.GetFullPath(existing), "Loaded existing electric annual run."); return; }
             ElectricAnnualMatrix.ValidateSchedule(schedule);
             project = ProjectLayout.Absolute(project); luminaire = Path.GetFullPath(luminaire);
@@ -64,7 +74,7 @@ public sealed class ElectricAnnualSimulationComponent : FlahaGrowComponent
             if (!radiance.IsValid && Params.Input[7].SourceCount > 0) throw new InvalidOperationException("Connected Radiance environment is unresolved.");
             var resolvedBin = environment?.BinFolder ?? FindBin(bin);
             if (resolvedBin is null) throw new DirectoryNotFoundException("Radiance rtrace.exe and oconv.exe were not found. Provide a checked Radiance environment or bin folder.");
-            var key = string.Join("|", project, AnnualRun.HashFile(luminaire), string.Join(";", schedule.Select(value => value.ToString("R", CultureInfo.InvariantCulture))), string.Join("\n", radiancePoints), detail.Trim(), resolvedBin);
+            var key = string.Join("|", project, AnnualRun.HashFile(luminaire), string.Join(";", schedule.Select(value => value.ToString("R", CultureInfo.InvariantCulture))), string.Join("\n", radiancePoints), detail.Trim(), resolvedBin, weatherHash ?? "no-weather-reference");
             var launch = runLatch.Observe(run);
             if (string.Equals(key, lastKey, StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(lastFolder) && Directory.Exists(lastFolder))
             {
@@ -73,9 +83,15 @@ public sealed class ElectricAnnualSimulationComponent : FlahaGrowComponent
             operation.Cancel();
             var runs = Path.Combine(project, "runs"); if (launch) AnnualDiskSpace.Require(runs, ElectricAnnualMatrix.HoursPerNonLeapYear, radiancePoints.Count);
             var hashes = sceneFiles.Append(luminaire).ToDictionary(Path.GetFullPath, AnnualRun.HashFile, StringComparer.OrdinalIgnoreCase);
+            if (weatherPath is not null) hashes[weatherPath] = weatherHash!;
             var folder = AnnualRun.Create(runs, project, 1, radiancePoints, hashes, hours: ElectricAnnualMatrix.HoursPerNonLeapYear);
             foreach (var file in sceneFiles) File.Copy(file, Path.Combine(folder, Path.GetFileName(file)));
             File.Copy(luminaire, Path.Combine(folder, "luminaries.rad")); File.WriteAllLines(Path.Combine(folder, "0.pts"), radiancePoints);
+            if (weatherPath is not null)
+            {
+                var snapshot = Path.Combine(folder, "weather.epw"); File.Copy(weatherPath, snapshot);
+                if (AnnualRun.HashFile(snapshot) != weatherHash) throw new IOException("Time reference changed during snapshot.");
+            }
             File.WriteAllLines(Path.Combine(folder, "electric_dimming_schedule.txt"), schedule.Select(value => value.ToString("G17", CultureInfo.InvariantCulture)));
             lastFolder = folder; lastKey = key;
             if (!launch) { da.SetData(0, folder); da.SetData(2, "Prepared electric annual run. Set Run False then True to execute."); return; }
@@ -187,11 +203,12 @@ public sealed class ElectricAnnualSimulationComponent : FlahaGrowComponent
         var manifest = AnnualRun.Read(folder); da.SetData(0, folder); da.SetData(2, status); if (AnnualPartStatus.Read(folder, manifest, manifest.Parts[0]).Complete) da.SetData(2, status + " Completed.");
     }
     private static (int Ab, int Ad, string Lw) Detail(string detail) => detail.Trim().ToLowerInvariant() switch { "low" => (1, 128, "0.01"), "high" => (4, 1024, "0.001"), "very high" => (6, 4096, "0.00025"), _ => (2, 512, "0.002") };
-    private static string? FindBin(string requested)
-    {
-        var candidates = new List<string>(); if (!string.IsNullOrWhiteSpace(requested)) candidates.Add(requested); candidates.AddRange((Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)); candidates.Add(@"C:\Program Files\ladybug_tools\radiance\bin"); candidates.Add(@"C:\Radiance\bin");
-        return candidates.Select(path => path.Trim().Trim('"')).FirstOrDefault(path => File.Exists(Path.Combine(path, "oconv.exe")) && File.Exists(Path.Combine(path, "rtrace.exe")));
-    }
+    private static string? FindBin(string requested) =>
+        new RadianceDiscovery().FindBin(RadianceRequest.FromSystem() with
+        {
+            ExplicitLocation = string.IsNullOrWhiteSpace(requested) ? null : requested,
+            Workflow = AnalysisWorkflow.ElectricLighting
+        }, "oconv", "rtrace");
     public override bool Write(GH_IO.Serialization.GH_IWriter writer) { if (!string.IsNullOrWhiteSpace(lastFolder)) writer.SetString("LastFolder", lastFolder); if (!string.IsNullOrWhiteSpace(lastKey)) writer.SetString("LastKey", lastKey); return base.Write(writer); }
     public override bool Read(GH_IO.Serialization.GH_IReader reader) { lastFolder = reader.ItemExists("LastFolder") ? reader.GetString("LastFolder") : null; lastKey = reader.ItemExists("LastKey") ? reader.GetString("LastKey") : null; runLatch.Disarm(); return base.Read(reader); }
 }

@@ -7,15 +7,11 @@ using FlahaGrow.Grasshopper.Components.Setup;
 using GH_IO.Serialization;
 using Grasshopper.Kernel;
 
+if (args.Contains("--component-catalog")) { ComponentCatalogExport.Print(args.SkipWhile(a => a != "--component-catalog").Skip(1).FirstOrDefault()); return; }
+
 var cases = new (GH_Component Component, Guid Id, int Inputs, int Outputs)[]
 {
-    (new SimulationPathsComponent(), new("71c6a045-9308-4a0c-9f72-cab76ceefa5c"), 2, 5),
-    (new WorkingDirectoryComponent(), new("3bc3011e-2b2f-4c14-9344-dcb3554f3722"), 7, 7),
-    (new RadianceStatusComponent(), new("f6f1d5d4-9a1a-4de7-a090-6299c94e0060"), 1, 2),
-    (new RadianceVersionComponent(), new("272aa83d-9898-460d-8cbd-7f49374153ba"), 2, 1),
-    (new ProjectPathsComponent(), new("37c57f57-1be3-4eaa-aa88-12a20f0172ef"), 5, 5),
     (new ProjectWorkspaceComponent(), new("d236c57b-eab1-4329-8e4e-beb2285ba04d"), 7, 7),
-    (new ProjectRadianceComponent(), new("59892a1c-7e97-46d5-989c-2283c9476ea4"), 5, 7),
     (new SimulationPathsSetupComponent(), new("71ce89f2-1439-4730-915f-07436692926c"), 4, 4),
     (new RadianceSetupComponent(), new("9cd39fc4-7c35-4aee-a247-1c8b980c4b17"), 2, 7)
 };
@@ -44,7 +40,7 @@ foreach (var (component, id, inputs, outputs) in cases)
 }
 var visible = cases.Where(c => c.Component.Exposure != GH_Exposure.hidden).Select(c => c.Component.Name).OrderBy(n => n).ToArray();
 if (!visible.SequenceEqual(new[] { "Radiance Status", "Simulation Paths", "Working Directory" })) throw new Exception("Setup toolbar has duplicate or missing components.");
-Console.WriteLine("Nine component checks passed; exactly three visible Setup components. This does not exercise the Rhino canvas or UI scheduler.");
+Console.WriteLine("Three component checks passed; exactly three registered Setup components. This does not exercise the Rhino canvas or UI scheduler.");
 
 var tracked = typeof(FlahaGrowAssemblyInfo).Assembly.GetTypes()
     .Where(type => !type.IsAbstract && typeof(GH_Component).IsAssignableFrom(type))
@@ -55,9 +51,21 @@ var tracked = typeof(FlahaGrowAssemblyInfo).Assembly.GetTypes()
     .ToArray();
 if (tracked.Length == 0 || tracked.Length != ComponentRevisionCatalog.Count || tracked.Any(component => component is not FlahaGrowComponent || !ComponentRevisionCatalog.Contains(component.ComponentGuid)))
     throw new InvalidOperationException("Every concrete FlahaGrow component must inherit revision tracking and have a catalog entry.");
-var revisionArchive = new GH_Archive();
+if (tracked.Length != 30 || tracked.Any(c => c.Exposure == GH_Exposure.hidden)
+    || tracked.Select(c => c.ComponentGuid).Distinct().Count() != tracked.Length
+    || tracked.GroupBy(c => (c.SubCategory, c.Name)).Any(group => group.Count() > 1))
+    throw new InvalidOperationException("Expected 30 visible components with unique names and GUIDs; no hidden predecessors.");
+var portTypes = tracked.SelectMany(c => c.Params.Input.Concat(c.Params.Output)).Select(p => p.GetType()).ToHashSet();
+var wireTypes = typeof(FlahaGrowAssemblyInfo).Assembly.GetTypes()
+    .Where(t => !t.IsAbstract && typeof(IGH_Param).IsAssignableFrom(t)).ToArray();
+if (wireTypes.Length != 8 || wireTypes.Any(t => !portTypes.Contains(t)))
+    throw new InvalidOperationException("Every typed wire parameter must be used by a registered component port.");
+var wireParameters = wireTypes.Select(t => (IGH_Param)Activator.CreateInstance(t)!).ToArray();
+if (tracked.Select(c => c.ComponentGuid).Concat(wireParameters.Select(p => p.ComponentGuid)).Distinct().Count() != tracked.Length + wireTypes.Length)
+    throw new InvalidOperationException("Component and wire parameter GUIDs must be globally unique.");
+Console.WriteLine("PASS eight typed wire parameters: every type used by a current port; globally unique GUIDs.");
 var embeddedIcons = typeof(FlahaGrowAssemblyInfo).Assembly.GetManifestResourceNames().Where(n => n.StartsWith("FlahaGrow.Icons.", StringComparison.Ordinal)).ToArray();
-if (embeddedIcons.Length != 33 || embeddedIcons.Any(n => n.Contains("System-18"))) throw new Exception("Unexpected icon inventory.");
+if (embeddedIcons.Length != 24) throw new Exception("Unexpected icon inventory.");
 foreach (var resource in embeddedIcons)
 {
     var name = resource["FlahaGrow.Icons.".Length..^4];
@@ -73,27 +81,33 @@ foreach (var component in tracked)
     var actual = typeof(FlahaGrowComponent).GetProperty("Icon", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(component);
     if (!ReferenceEquals(expected, actual)) throw new Exception("Component icon mapping mismatch: " + component.Name);
 }
-Console.WriteLine("PASS 32 named component icons and plugin logo: embedded mapping, 24px rendering, shared cache and unmapped fallback.");
-var trackedComponent = (FlahaGrowComponent)tracked[0];
-if (!revisionArchive.AppendObject(trackedComponent, "Component")) throw new InvalidOperationException("Revision archive write failed.");
-var restoredTracked = (FlahaGrowComponent)Activator.CreateInstance(tracked[0].GetType())!;
-if (!revisionArchive.ExtractObject(restoredTracked, "Component") || restoredTracked.SavedRevision != trackedComponent.Revision.Version || restoredTracked.NeedsRevisionReview)
-    throw new InvalidOperationException("Component revision was not preserved through a Grasshopper archive.");
-Console.WriteLine($"PASS component revision ledger: {tracked.Length} components registered; archive revision retained.");
+Console.WriteLine("PASS 23 named component icons and plugin logo: embedded mapping, 24px rendering, shared cache and unmapped fallback.");
+foreach (FlahaGrowComponent component in tracked)
+{
+    var archive = new GH_Archive();
+    if (!archive.AppendObject(component, "Component")) throw new InvalidOperationException("Archive write failed: " + component.Name);
+    var reloaded = new GH_Archive();
+    var copy = (FlahaGrowComponent)Activator.CreateInstance(component.GetType())!;
+    if (!reloaded.Deserialize_Xml(archive.Serialize_Xml()) || !reloaded.ExtractObject(copy, "Component")
+        || copy.ComponentGuid != component.ComponentGuid || copy.SavedRevision != component.Revision.Version || copy.NeedsRevisionReview)
+        throw new InvalidOperationException("Identity/revision archive mismatch: " + component.Name);
+    var before = component.Params.Input.Concat(component.Params.Output).Select(p => (p.Name, p.NickName, p.Access, p.Optional, p.GetType()));
+    var after = copy.Params.Input.Concat(copy.Params.Output).Select(p => (p.Name, p.NickName, p.Access, p.Optional, p.GetType()));
+    if (!before.SequenceEqual(after)) throw new InvalidOperationException("Port archive mismatch: " + component.Name);
+}
+Console.WriteLine($"PASS all {tracked.Length} component archives: identity, revision and input/output contracts retained.");
 
 var plantCases = new (GH_Component Component, int Inputs, int Outputs)[]
 {
-    (new SelectHourIndexComponent(), 2, 4), (new SelectPpfdHourComponent(), 2, 4),
-    (new CustomSpectralProfileComponent(), 5, 3), (new SpectralProfileComponent(), 1, 3), (new PlantLightContextComponent(), 3, 2),
-    (new CombinePlantLightComponent(), 1, 2), (new PpfdAtHourComponent(), 2, 2),
-    (new AnnualPpfdAtSensorComponent(), 2, 2), (new DliForDayComponent(), 2, 3),
-    (new AnnualDliAtSensorComponent(), 2, 2),
-    (new HourlyParComponent(), 3, 2), (new ParEachSensorComponent(), 7, 4),
-    (new DliHourlyComponent(), 3, 2), (new DliEachSensorComponent(), 7, 3),
-    (new AnnualResultCacheComponent(), 2, 4), (new LuxToPpfdComponent(), 2, 1),
-    (new AnnualDliComponent(), 2, 2), (new HourlyPpfdComponent(), 2, 1),
-    (new AnnualSensorPpfdComponent(), 2, 1), (new SelectSpectralFactorComponent(), 3, 3),
-    (new LoadSpectralDataComponent(), 3, 5)
+    (new SelectHourIndexComponent(), 2, 4),
+    (new CustomSpectralProfileComponent(), 5, 3), (new SpectralProfileComponent(), 1, 3), (new PlantLightContextComponent(), 4, 2),
+    (new CombinePlantLightComponent(), 1, 2), (new PpfdAtHourComponent(), 2, 3),
+    (new AnnualPpfdAtSensorComponent(), 2, 3), (new DliForDayComponent(), 2, 4),
+    (new AnnualDliAtSensorComponent(), 2, 3),
+    (new AnnualPlotComponent(), 16, 1),
+    (new ElectricAnnualSimulationComponent(), 10, 3), (new ReadIlluminanceComponent(), 4, 3),
+    (new AnnualResultCacheComponent(), 3, 5), (new LuxToPpfdComponent(), 2, 1),
+    (new AnnualDliComponent(), 2, 2),
 };
 foreach (var (component, inputCount, outputCount) in plantCases)
 {
@@ -112,13 +126,13 @@ if (new DliForDayComponent().Params.Output[2].Access != GH_ParamAccess.tree
     throw new Exception("Plant-light typed context/tree contract failed.");
 var explicitProfile = new CustomSpectralProfileComponent();
 var timing = new SelectHourIndexComponent();
-typeof(AnnualHourSelectorComponent).GetField("selectedIndex", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(timing, (int?)6109);
+typeof(SelectHourIndexComponent).GetField("selectedIndex", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(timing, (int?)6109);
 var timingArchive = new GH_Archive(); timingArchive.AppendObject(timing, "Component");
 var timingCopy = new SelectHourIndexComponent(); timingArchive.ExtractObject(timingCopy, "Component");
-var timingData = TestData.Create(new() { [0] = true, [1] = 180 });
+var timingData = TestData.Create(new() { [0] = true });
 SolveUntil(timingCopy, timingData, () => timingData.Outputs.ContainsKey(0));
 if ((int)timingData.Outputs[0]! != 6109 || (int)timingData.Outputs[2]! != 254
-    || (string)timingData.Outputs[3]! != "annual-365;UTC+03:00;local-standard;hourly") throw new Exception("Hour/Day/Alignment contract or persistence failed.");
+    || timingData.Outputs.ContainsKey(3)) throw new Exception("Hour/Day contract or missing-weather safeguard failed.");
 var librarySelector = new SpectralProfileComponent();
 typeof(SpectralProfileComponent).GetField("selectedId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(librarySelector, "CIE_std_illum_D65:1");
 var libraryArchive = new GH_Archive(); libraryArchive.AppendObject(librarySelector, "Component");
@@ -131,7 +145,7 @@ if (Math.Abs(((SpectralProfileGoo)libraryData.Outputs[0]!).Value.Factor - .01801
 var profileData = TestData.Create(new() { [0] = "Test daylight", [1] = .0185 });
 SolveUntil(explicitProfile, profileData, () => profileData.Outputs.ContainsKey(0));
 if (((SpectralProfileGoo)profileData.Outputs[0]!).Value.Factor != .0185) throw new Exception("Explicit profile solve failed.");
-Console.WriteLine("PASS 21 plant-light/timing interface archives, saved Hour/Day/Alignment, typed ports, hourly integral tree and explicit profile solve. Live Rhino wiring is not exercised.");
+Console.WriteLine($"PASS {plantCases.Length} plant-light/timing/plot interface archives, saved Hour/Day, weather safeguards, typed ports and hourly integral tree. Live Rhino wiring is not exercised.");
 
 foreach (var (component, inputs, radianceIndex) in new[] { ((GH_Component)new AnnualSimulationComponent(), 12, 7), ((GH_Component)new IesToRadianceComponent(), 11, 10) })
 {
@@ -165,9 +179,6 @@ try
     var stamp = File.GetLastWriteTimeUtc(manifestFile);
     MeasureWarm(pathsComponent, pathsData);
     MeasureWarm(workspace, data);
-    var radiance = new ProjectRadianceComponent();
-    var radianceData = TestData.Create(new() { [3] = false });
-    MeasureWarm(radiance, radianceData);
     var automatic = new RadianceSetupComponent();
     // A missing explicit fixture is deterministic and must never launch an ambient installation.
     typeof(RadianceSetupComponent).GetField("selectedLocation", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(automatic, Path.Combine(testRoot, "missing-radiance"));
@@ -192,6 +203,8 @@ try
     Console.WriteLine("PASS automatic Radiance check without a button, explicit selection isolation, and analysis context.");
     if (File.GetLastWriteTimeUtc(manifestFile) != stamp) throw new Exception("Warm solves rewrote the manifest.");
     PlantLightIntegrationChecks.Run(testRoot);
+    ValidationIntegrationChecks.Run(testRoot);
+    if (args.Length > 1 && !string.IsNullOrWhiteSpace(args[1])) ValidationIntegrationChecks.LiveIes(testRoot, args[0], args[1]);
 }
 finally
 {

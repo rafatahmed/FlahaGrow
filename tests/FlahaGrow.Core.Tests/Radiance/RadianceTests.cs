@@ -289,6 +289,30 @@ public sealed class RadianceTests
         Assert.Equal(path, Environment.GetEnvironmentVariable("PATH")); Assert.Equal(ray, Environment.GetEnvironmentVariable("RAYPATH"));
     }
 
+    [Fact]
+    public void ConsumerLookupDoesNotFallbackFromExplicitMissingOrIncompleteLocation()
+    {
+        files.Install(@"C:\Available");
+        var request = new RadianceRequest { SearchPaths = new[] { @"C:\Available" }, ExplicitLocation = @"C:\Missing" };
+        Assert.Null(Discovery.FindBin(request, "rfluxmtx", "rmtxop"));
+        files.Install(@"C:\Incomplete");
+        files.Entries.Remove(@"C:\Incomplete\bin\rmtxop.exe");
+        Assert.Null(Discovery.FindBin(request with { ExplicitLocation = @"C:\Incomplete" }, "rfluxmtx", "rmtxop"));
+    }
+
+    [Fact]
+    public void ConsumerLookupRequiresToolsFromOneInstallationAndAcceptsRootOrBin()
+    {
+        files.Install(@"C:\First"); files.Install(@"C:\Second");
+        files.Entries.Remove(@"C:\First\bin\rmtxop.exe");
+        files.Entries.Remove(@"C:\Second\bin\rfluxmtx.exe");
+        var request = new RadianceRequest { SearchPaths = new[] { @"C:\First", @"C:\Second" } };
+        Assert.Null(Discovery.FindBin(request, "rfluxmtx", "rmtxop"));
+        files.Entries[@"C:\Second\bin\rfluxmtx.exe"] = "1";
+        Assert.Equal(@"C:\Second\bin", Discovery.FindBin(request, "rfluxmtx", "rmtxop"));
+        Assert.Equal(@"C:\Second\bin", Discovery.FindBin(request with { ExplicitLocation = @"C:\Second\bin" }, "rfluxmtx", "rmtxop"));
+    }
+
     private sealed class Files : IRadianceFiles
     {
         public readonly HashSet<string> Directories = new(StringComparer.OrdinalIgnoreCase);

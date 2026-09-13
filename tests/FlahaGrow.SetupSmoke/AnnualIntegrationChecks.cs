@@ -24,7 +24,7 @@ internal static class AnnualIntegrationChecks
         File.WriteAllText(grid, "0 0 0 0 0 1");
         var weather = Path.Combine(source, "weather.epw");
         var record = string.Join(",", Enumerable.Range(0, 35).Select(index => index switch { 1 or 2 or 3 => "1", 14 or 15 => "1", _ => "0" }));
-        File.WriteAllLines(weather, new[] { "LOCATION,fixture,-,FIX,0,0,1,2,3,4" }.Concat(Enumerable.Repeat("fixture header", 7)).Concat(Enumerable.Repeat(record, LadybugWea.AnnualHours)));
+        File.WriteAllLines(weather, new[] { "LOCATION,fixture,-,FIX,0,0,1,2,3,4" }.Concat(Enumerable.Repeat("fixture header", 7)).Concat(Enumerable.Range(0, LadybugWea.AnnualHours).Select(i => { var date = new DateTime(2001, 1, 1).AddHours(i); var fields = record.Split(','); fields[1] = date.Month.ToString(); fields[2] = date.Day.ToString(); fields[3] = (date.Hour + 1).ToString(); return string.Join(",", fields); })));
         var bin = Path.Combine(root, "checked bin"); Directory.CreateDirectory(bin);
         var tools = new[] { "rcontrib", "gendaymtx", "oconv", "rfluxmtx", "dctimestep", "rmtxop", "cnt", "rcalc" }
             .ToDictionary(name => name, name => Path.Combine(bin, name + ".exe"));
@@ -101,6 +101,8 @@ internal static class AnnualIntegrationChecks
         if (incomplete.Outputs.ContainsKey(0)) throw new Exception("Incomplete four-part result was accepted.");
         Result(firstFolder, 3, "1 2 3\n4 5 6");
         var full = Solve(new AnnualResultCacheComponent(), new() { [0] = firstFolder, [1] = true });
+        var timing = Solve(new SelectHourIndexComponent(), new() { [1] = full.Outputs[4]! });
+        if ((string)timing.Outputs[3]! != "annual-365;UTC+03:00;local-standard;hourly") throw new Exception("Weather UTC was not inherited from loaded result.");
         if ((int)full.Outputs[1]! != 12) throw new Exception("Declared part order/count lost.");
         var firstRaw = (string)full.Outputs[0]!; var firstBytes = File.ReadAllBytes(firstRaw);
         for (var i = 0; i < 4; i++) Result(firstFolder, i, "1 2 3");
@@ -202,40 +204,27 @@ internal static class AnnualIntegrationChecks
         Result(folder, 0, "1 2\n3 4");
         var built = Solve(new AnnualResultCacheComponent(), new() { [0] = folder, [1] = true });
         var path = (string)built.Outputs[0]!;
-        var valid = Solve(new IlluminancePointInTimeComponent(), new() { [0] = path, [1] = " hour ", [2] = 1, [3] = true });
+        var valid = Solve(new ReadIlluminanceComponent(), new() { [0] = path, [1] = " hour ", [2] = 1, [3] = true });
         if (!((string)valid.Outputs[1]!).Contains("hour 1")) throw new Exception("Whitespace mode did not select hour.");
-        CheckLegacyDliReaders(path);
+        var badMode = Solve(new ReadIlluminanceComponent(), new() { [0] = path, [1] = "hours", [2] = 1, [3] = true });
+        if (badMode.Outputs.ContainsKey(0) || !((string)badMode.Outputs[1]!).Contains("Mode must")) throw new Exception("Unknown reader mode was silently interpreted.");
+        var metaPath = Path.ChangeExtension(path, ".meta.json");
+        var originalMeta = File.ReadAllText(metaPath);
+        var meta = System.Text.Json.Nodes.JsonNode.Parse(originalMeta)!;
+        var sensors = meta["sensors"]!.GetValue<int>(); var hours = meta["hours"]!.GetValue<int>();
+        meta["sensors"] = 1; meta["hours"] = sensors * hours; // Same bytes, wrong matrix shape.
+        File.WriteAllText(metaPath, meta.ToJsonString());
+        var reshaped = Solve(new ReadIlluminanceComponent(), new() { [0] = path, [1] = "hour", [2] = 0, [3] = true });
+        if (reshaped.Outputs.ContainsKey(0)) throw new Exception("Tampered cache dimensions were accepted.");
+        File.WriteAllText(metaPath, originalMeta);
         using (var writer = new BinaryWriter(File.Create(path)))
             foreach (var value in new[] { 1f, 2f, -28075f, 4f }) writer.Write(value);
-        foreach (var component in new GH_Component[] { new IlluminancePointInTimeComponent(), new IlluminanceSensorComponent() })
+        foreach (var component in new GH_Component[] { new ReadIlluminanceComponent() })
         {
             var bad = Solve(component, new() { [0] = path, [1] = "hour", [2] = 1, [3] = true });
             if (bad.Outputs.ContainsKey(0) || !((string)bad.Outputs[1]!).Contains("provenance")) throw new Exception("Modified cache was emitted as lux.");
         }
-        if (Solve(new HourlyParComponent(), new() { [0] = path, [1] = 1 }).Outputs.ContainsKey(0)
-            || Solve(new ParEachSensorComponent(), new() { [0] = path, [1] = 0 }).Outputs.ContainsKey(0))
-            throw new Exception("Legacy negative cache was converted to PPFD.");
         Console.WriteLine("PASS cache reader provenance: whitespace mode, manifest/signature rejection of modified cache, no invalid lux/PPFD emission.");
-    }
-
-    private static void CheckLegacyDliReaders(string path)
-    {
-        var hourly = Solve(new DliHourlyComponent(), new() { [0] = path, [1] = 25 });
-        var totals = ((IEnumerable<double>)hourly.Outputs[0]!).ToArray();
-        if (totals.Length != 2 || totals.Any(value => value <= 0)) throw new Exception("DLI Hourly did not return one positive total per sensor.");
-        var tree = (Grasshopper.Kernel.Data.GH_Structure<Grasshopper.Kernel.Types.GH_Number>)hourly.Outputs[1]!;
-        if (tree.PathCount != 2 || tree.Branches.Any(branch => branch.Count != 24)) throw new Exception("DLI Hourly did not return a 24-value branch for every sensor.");
-
-        // DLI Each Sensor deliberately receives a GH tree, exactly like the legacy
-        // Python component. DispatchProxy cannot implement Grasshopper's generic
-        // GetDataTree<T> method, so its native tree solve belongs to Rhino canvas
-        // acceptance rather than this CLR-only harness. Its ports are covered by
-        // the component ledger/archive check above.
-        var selectedSensor = new DliEachSensorComponent();
-        if (selectedSensor.Params.Input.Count != 7 || selectedSensor.Params.Output.Count != 3
-            || selectedSensor.Params.Input[3].Access != GH_ParamAccess.tree)
-            throw new Exception("DLI Each Sensor does not retain its seven-input native-tree interface.");
-        Console.WriteLine("PASS legacy DLI ports: 24 hourly entries per sensor; DLI Each Sensor retains its 7/3 native-tree interface.");
     }
 
     private static void Result(string folder, int index, string values)
@@ -256,7 +245,8 @@ internal static class AnnualIntegrationChecks
         var ies = Path.Combine(root, "fixture.ies"); File.WriteAllText(ies, "Fixture (Run=False)");
         Solve(new IesToRadianceComponent(), new() { [0] = ies, [6] = project, [8] = false });
         var folder = LuminairePathResolver.ResolveFolder(project);
-        if (!Directory.Exists(folder)) throw new Exception("IES preparation did not use project-local output.");
+        if (Directory.Exists(folder)) throw new Exception("Idle IES conversion wrote an output directory.");
+        Directory.CreateDirectory(folder);
         var rad = Path.Combine(folder, "fixture.rad"); File.WriteAllText(rad, "# stand-in for generated luminaire");
         var geometry = Solve(new LightingGeometryComponent(), new() { [0] = new List<Point3d> { new(1, 2, 3) }, [4] = new List<string> { rad } });
         var sibling = Path.Combine(root, "Luminaire_files"); Directory.CreateDirectory(sibling);
@@ -268,7 +258,7 @@ internal static class AnnualIntegrationChecks
 
     private static void CheckSelectorErrors(string root)
     {
-        foreach (var component in new GH_Component[] { new FacadeMaterialComponent(), new GlazingMaterialComponent(), new IesLuminaireSelectorComponent() })
+        foreach (var component in new GH_Component[] { new OpaqueMaterialComponent(), new GlazingMaterialComponent(), new IesLuminaireSelectorComponent() })
         {
             Solve(component, new() { [0] = true, [1] = Path.Combine(root, "missing library") });
             if (component.RuntimeMessages(GH_RuntimeMessageLevel.Error).Count == 0) throw new Exception("Missing selector library did not produce a diagnostic.");
@@ -283,9 +273,9 @@ internal static class AnnualIntegrationChecks
         try
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
-            var path = Path.Combine(root, "light.rad"); File.WriteAllText(path, "3 1 1 1");
-            typeof(IesToRadianceComponent).GetMethod("RewriteRad", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, new object?[] { path, .265, .67, .065, null });
-            if (File.ReadAllText(path).Trim() != "3 0.265 0.67 0.065") throw new Exception("RGB writer depends on culture.");
+            var path = Path.Combine(root, "light.rad"); File.WriteAllText(path, "void light fixture\n0\n0\n3 1 1 1");
+            var rewritten = FlahaGrow.Core.Radiance.LuminaireOutput.Rewrite(File.ReadAllText(path), .25, .5, .25);
+            if (!rewritten.Contains("3 0.25 0.5 0.25")) throw new Exception("RGB writer depends on culture.");
             var line = (string)typeof(LightingGeometryComponent).GetMethod("Build", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, new object[] { new Point3d(1.25, 2.5, 3.75), 4.5, 0.0, 0.0, path })!;
             if (!line.Contains("-rx 4.5 -t 1.25 2.5 3.75")) throw new Exception("xform writer depends on culture.");
         }
@@ -296,6 +286,13 @@ internal static class AnnualIntegrationChecks
     {
         var data = TestData.Create(inputs);
         component.GetType().GetMethod("SolveInstance", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(component, new object[] { data.Access });
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (component is AnnualResultCacheComponent loader && loader.IsLoading && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(10); data.Outputs.Clear();
+            component.GetType().GetMethod("SolveInstance", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(component, new object[] { data.Access });
+        }
+        if (component is AnnualResultCacheComponent pending && pending.IsLoading) throw new Exception("Async cache load timed out.");
         return data;
     }
 }

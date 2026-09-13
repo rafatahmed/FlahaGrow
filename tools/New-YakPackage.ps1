@@ -9,7 +9,6 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$pluginProject = Join-Path $repoRoot 'src\FlahaGrow.Grasshopper\FlahaGrow.Grasshopper.csproj'
 $stagingDirectory = Join-Path $repoRoot 'artifacts\yak-staging'
 $pluginOutput = Join-Path $repoRoot 'src\FlahaGrow.Grasshopper\bin\Release\net7.0-windows\FlahaGrow.gha'
 $coreOutput = Join-Path (Split-Path -Parent $pluginOutput) 'FlahaGrow.Core.dll'
@@ -28,10 +27,12 @@ if (-not (Test-Path -LiteralPath $YakPath)) {
     throw "Yak was not found. Install Rhino 8 or provide -YakPath."
 }
 
-$buildArguments = @('build', $pluginProject, '--configuration', 'Release', '-m:1', "/p:Version=$Version")
-if ($NoRestore) { $buildArguments += '--no-restore' }
-& dotnet @buildArguments
-if ($LASTEXITCODE -ne 0) { throw "Plugin build failed with exit code $LASTEXITCODE. Packaging stopped." }
+$testArguments = @('test', (Join-Path $repoRoot 'tests/FlahaGrow.Core.Tests/FlahaGrow.Core.Tests.csproj'), '--configuration', 'Release', '-m:1', "/p:Version=$Version")
+if ($NoRestore) { $testArguments += '--no-restore' }
+& dotnet @testArguments
+if ($LASTEXITCODE -ne 0) { throw 'Core validation failed. Packaging stopped.' }
+& (Join-Path $PSScriptRoot 'Test-SetupComponents.ps1') -NoRestore:$NoRestore -Version $Version
+& (Join-Path $PSScriptRoot 'Test-PluginAudit.ps1')
 foreach ($output in @($pluginOutput, $coreOutput)) {
     if (-not (Test-Path -LiteralPath $output -PathType Leaf)) { throw "Required package assembly missing: $output" }
 }

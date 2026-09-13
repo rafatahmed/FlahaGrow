@@ -59,8 +59,10 @@ public sealed class PlantLightContextComponent : FlahaGrowComponent
     protected override void RegisterInputParams(GH_InputParamManager p)
     {
         p.AddTextParameter("Result cache", "F32", "F32 output of Load Annual Result, before mixed-lux composition.", GH_ParamAccess.item);
+        p[0].Optional = true;
         p.AddParameter(new SpectralProfileParameter(), "Spectral Profile", "Profile", "Connect Spectral Profile → Profile (or Custom Spectral Profile → Profile). Use the spectrum of this source.", GH_ParamAccess.item);
-        p.AddTextParameter("Annual alignment declaration", "Alignment", "Optional for one source. Connect Hour Index (Select Date and Hour) → Alignment for mixing. NOT Hour, Day or Date. Set the actual simulation UTC offset in Hour Index; verify calendars/schedules match.", GH_ParamAccess.item); p[2].Optional = true;
+        p.AddTextParameter("Annual alignment declaration", "Alignment", "Legacy optional declaration. With Result connected, leave empty: weather alignment is inherited automatically. Never connect Date, Hour or Day.", GH_ParamAccess.item); p[2].Optional = true;
+        p.AddParameter(new AnnualResultParameter(), "Annual Result", "Result", "Recommended: Load Annual Result → Result. Supplies cache and weather alignment automatically; leave F32 and Alignment empty.", GH_ParamAccess.item); p[3].Optional = true;
     }
     protected override void RegisterOutputParams(GH_OutputParamManager p)
     {
@@ -70,11 +72,22 @@ public sealed class PlantLightContextComponent : FlahaGrowComponent
     protected override void SolveInstance(IGH_DataAccess da)
     {
         string cache = "", time = ""; var profile = new SpectralProfileGoo();
-        if (!da.GetData(0, ref cache) || !da.GetData(1, ref profile) || !profile.IsValid) return;
+        da.GetData(0, ref cache);
+        if (!da.GetData(1, ref profile) || !profile.IsValid) return;
         da.GetData(2, ref time);
         try
         {
-            var context = new PlantLightContext(AnnualIlluminanceResult.Open(cache), profile.Value, time);
+            var loaded = new AnnualResultGoo(); var hasResult = da.GetData(3, ref loaded) && loaded.IsValid;
+            if (hasResult)
+            {
+                if (cache.Length > 0 && !string.Equals(Path.GetFullPath(cache), loaded.Value.Result.CachePath, StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("F32 and Result refer to different caches. Use Result only.");
+                var inherited = loaded.Value.Weather?.Alignment ?? "";
+                if (time.Length > 0 && (inherited.Length == 0 || time != inherited)) throw new ArgumentException("Manual Alignment cannot override Result weather. Use Result only.");
+                time = inherited;
+            }
+            if (!hasResult && cache.Length == 0) throw new ArgumentException("Connect Load Annual Result → Result (or legacy F32).");
+            var context = new PlantLightContext(hasResult ? loaded.Value.Result : AnnualIlluminanceResult.Open(cache), profile.Value, time, hasResult && loaded.Value.Weather is not null);
             da.SetData(0, new PlantLightContextGoo(context)); da.SetData(1, context.Description + "; Assumptions: " + profile.Value.Warning);
             SetRevisionMessage("Annual context · select in readers");
         }
@@ -133,6 +146,7 @@ public abstract class PlantLightReaderComponent : FlahaGrowComponent
         p.AddTextParameter("Status", "Status", "Quantity, selection and method provenance. Indices do not imply a known calendar date.", GH_ParamAccess.item);
         if (this is DliForDayComponent)
             p.AddNumberParameter("Hourly photon integral", "Hourly", "24 values per sensor branch {sensor}: mol/m² per hourly interval, not PPFD.", GH_ParamAccess.tree);
+        p.AddParameter(new PlotAttributesParameter(), "Plot Attributes", "Plot", "Connect to Annual Plot.Plot with this component's matching PPFD/DLI values. Grid outputs describe a grid, not an annual series.", GH_ParamAccess.item);
     }
     protected override void SolveInstance(IGH_DataAccess da)
     {
@@ -155,6 +169,9 @@ public abstract class PlantLightReaderComponent : FlahaGrowComponent
             var selection = sensor ? $"sensor index {index} = saved sensor row {index + 1} of {c.Sensors}" : dli ? $"day index {index} (day-of-year {index + 1})"
                 : $"hour interval {index}; day index {index / 24}; representative local-standard hour {index % 24 + .5:0.0}";
             da.SetData(1, $"{selection}; {values.Length} {(dli ? "mol/m²/day" : "µmol/m²/s")} values; {c.Description}");
+            da.SetData(dli && !sensor ? 3 : 2, new PlotAttributesGoo(PlotAttributes.Create(values,
+                dli ? "DLI" : "PPFD", dli ? "mol/m²/day" : "µmol/m²/s",
+                sensor ? dli ? "annual-daily" : "annual-hourly" : "sensor-grid", selection, c.Description)));
         }
         catch (Exception ex) { da.SetData(1, ex.Message); AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
     }

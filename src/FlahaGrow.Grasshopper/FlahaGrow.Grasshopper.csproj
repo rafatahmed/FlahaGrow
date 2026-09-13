@@ -12,7 +12,7 @@
     <Description>Annual greenhouse-lighting simulation components for Grasshopper.</Description>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Include="../../docs/Icon/*.png" Exclude="../../docs/Icon/FlahaGrow_Icon_System-18.png">
+    <EmbeddedResource Include="../../docs/Icon/*.png">
       <LogicalName>FlahaGrow.Icons.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
     <ProjectReference Include="../FlahaGrow.Core/FlahaGrow.Core.csproj" />

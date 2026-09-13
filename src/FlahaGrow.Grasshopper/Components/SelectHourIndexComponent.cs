@@ -4,38 +4,38 @@ using Grasshopper.Kernel;
 using GH_IO.Serialization;
 using FlahaGrow.Core.Operations;
 using FlahaGrow.Core.PlantLight;
+using FlahaGrow.Grasshopper.Parameters;
 
 namespace FlahaGrow.Grasshopper.Components;
 
-public abstract class AnnualHourSelectorComponent : FlahaGrowComponent
+public sealed class SelectHourIndexComponent : FlahaGrowComponent
 {
     private int? selectedIndex;
     private readonly ActionLatch picker = new();
-    protected AnnualHourSelectorComponent(string name, string nick, string description, Guid guid) : base(name, nick, description, "FlahaGrow", "03 Annual") => Id = guid;
-    private Guid Id { get; }
-    public override Guid ComponentGuid => Id;
+    public SelectHourIndexComponent() : base("Select Date and Hour", "Hour Index", "Selects a date and AM/PM hour and returns its annual 0-based hour index (0–8759).", "FlahaGrow", "03 Annual") { }
+    public override Guid ComponentGuid => new("a9c4973b-acb7-45be-96ee-a6d8a35fa418");
     protected override void RegisterInputParams(GH_InputParamManager p)
     {
         p.AddBooleanParameter("Run", "Run", "Connect a Button. Opens once on False → True; selected clock hour is the interval start.", GH_ParamAccess.item, false);
-        p.AddIntegerParameter("Simulation UTC offset (minutes)", "UTC min", "Optional: actual simulation/weather-file standard-time UTC offset in minutes, e.g. +180 for UTC+03:00. Enables Alignment output. Not inferred from the computer/date. Verify mixed-source schedules share the same 365-day Jan–Dec axis, without DST.", GH_ParamAccess.item);
-        p[1].Optional = true;
+        p.AddParameter(new AnnualResultParameter(), "Annual Result", "Result", "Connect Load Annual Result → Result. Location and UTC come from the verified run EPW automatically.", GH_ParamAccess.item); p[1].Optional = true;
     }
     protected override void RegisterOutputParams(GH_OutputParamManager p)
     {
         p.AddIntegerParameter("Selected hour index", "Hour", "Connect to PPFD at Hour.Hour or an illuminance Hour input. 0–8759; interval start, local standard time.", GH_ParamAccess.item);
         p.AddTextParameter("Selected date and hour", "Date", "Display only: connect to a Panel. NOT Plant Light Context.Alignment.", GH_ParamAccess.item);
         p.AddIntegerParameter("Selected day index", "Day", "Connect to DLI for Day.Day. 0–364; Jan 1 = 0. Equals floor(Hour / 24).", GH_ParamAccess.item);
-        p.AddTextParameter("Annual alignment declaration", "Alignment", "Connect to Plant Light Context.Alignment for each mixed source. Requires explicit simulation UTC offset. Whole annual axis, not chosen date. User declaration, not verified metadata.", GH_ParamAccess.item);
+        p.AddTextParameter("Annual weather alignment", "Alignment", "Inherited from Result weather. Normally Context inherits it directly from Result too. Does not certify unrelated electric schedules.", GH_ParamAccess.item);
     }
     protected override void SolveInstance(IGH_DataAccess da)
     {
         var run = false; da.GetData(0, ref run);
-        int utcMinutes = 0;
-        if (da.GetData(1, ref utcMinutes))
+        var result = new AnnualResultGoo();
+        if (da.GetData(1, ref result) && result.IsValid)
         {
-            try { da.SetData(3, AnnualTime.Alignment(utcMinutes)); }
-            catch (ArgumentException ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); return; }
+            if (result.Value.Weather is { } weather) { da.SetData(3, weather.Alignment); SetRevisionMessage(weather.Location); }
+            else AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, result.Value.WeatherStatus);
         }
+        else AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Connect Load Annual Result → Result for automatic location/UTC. Unconnected selection is an index-only 365-day calendar.");
         if (picker.Observe(run))
         {
             using var dialog = new AnnualHourSelectorDialog();
@@ -60,15 +60,7 @@ public abstract class AnnualHourSelectorComponent : FlahaGrowComponent
     }
 }
 
-public sealed class SelectHourIndexComponent : AnnualHourSelectorComponent
-{
-    public SelectHourIndexComponent() : base("Select Date and Hour", "Hour Index", "Selects a date and AM/PM hour and returns its annual 0-based hour index (0–8759).", new Guid("31f97f51-692b-43b1-9b45-47f1d4ef2d48")) { }
-}
 
-public sealed class SelectPpfdHourComponent : AnnualHourSelectorComponent
-{
-    public SelectPpfdHourComponent() : base("Select PIT to PPFD", "PPFD Hour", "Selects the annual 0-based hour index for point-in-time PPFD.", new Guid("66090f6d-e92c-4dde-b72f-d85d033ae1f6")) { }
-}
 
 internal sealed class AnnualHourSelectorDialog : Form
 {

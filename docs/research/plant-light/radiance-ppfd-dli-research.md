@@ -107,32 +107,18 @@ matching raw sensor/time values, not additional screenshots.
 
 ### Source-code evidence
 
-| Source | Observed behavior | Design consequence |
+This implementation cross-reference was refreshed after component consolidation on 2026-09-13. Scientific datasets and external citations below retain their original research scope.
+
+| Source | Current behavior | Interpretation |
 | --- | --- | --- |
-| [AnnualSimulationComponent](../../../src/FlahaGrow.Grasshopper/Components/AnnualSimulationComponent.cs) | `gendaymtx`, daylight coefficients, total-minus-direct-plus-discrete-sun correction, then RGB reduction using `47.4 119.9 11.6` | Current result is photometric, not wavelength-resolved |
-| [SpectralConversionFactorComponents](../../../src/FlahaGrow.Grasshopper/Components/SpectralConversionFactorComponents.cs) | Hardcoded references; embedded legacy OPN1 table; custom CSV factor calculation | Replace undocumented assumptions only after numerical and compatibility review |
-| [LegacyPpfdComponents](../../../src/FlahaGrow.Grasshopper/Components/LegacyPpfdComponents.cs) | Hourly PAR and PAR Each Sensor are cache readers registered in 05 PPFD | The panel is not unused functionality; naming obscures what already exists |
-| [PpfdCacheComponents](../../../src/FlahaGrow.Grasshopper/Components/PpfdCacheComponents.cs) | Alternative list-based PPFD conversion | Retain utilities, avoid duplicate recommended paths |
-| [AnnualDliComponent](../../../src/FlahaGrow.Grasshopper/Components/AnnualDliComponent.cs) | Sum of PPFD × timestep / 10^6 with annual shape requirements | Integration is correct conditional on valid units, values and time axis |
-| [AnnualHeatmapComponents](../../../src/FlahaGrow.Grasshopper/Components/AnnualHeatmapComponents.cs) | Generic annual plotting and supplied legend text | Add typed labels/provenance without diagnosing calculations from presentation |
+| [AnnualSimulationComponent](../../../src/FlahaGrow.Grasshopper/Components/AnnualSimulationComponent.cs) | Daylight coefficients and total-minus-direct-plus-discrete-sun correction, with RGB reduction | The annual result is photometric |
+| [SpectralCalculator](../../../src/FlahaGrow.Core/PlantLight/SpectralCalculator.cs) | Explicit spectrum basis and coverage, interpolation and photopic/photon integration | The resulting factor depends on the declared spectrum and assumptions |
+| [PlantLightComponents](../../../src/FlahaGrow.Grasshopper/Components/PlantLightComponents.cs) | Source contexts and four independent PPFD/DLI readers | Convert each source before photon composition |
+| [LuxToPpfdComponent](../../../src/FlahaGrow.Grasshopper/Components/LuxToPpfdComponent.cs) | Numeric lux multiplied by an explicit factor | A numeric assumption does not independently authenticate a source spectrum |
+| [AnnualDliComponent](../../../src/FlahaGrow.Grasshopper/Components/AnnualDliComponent.cs) | Complete-series PPFD integration using timestep | Valid units, values and time axis remain necessary |
+| [AnnualHeatmapComponents](../../../src/FlahaGrow.Grasshopper/Components/AnnualHeatmapComponents.cs) | One annual viewer with matching Plot Attributes | Appearance alone does not validate calculations |
 
-The custom spectral importer rounds wavelengths to integers, overwrites
-duplicates, skips invalid rows, and forward-fills the last exact match on its
-sampling grid. This is not linear interpolation. A spectrum sampled at an
-offset or an incompatible step can be missed. Negative samples can enter the
-ratio, and a nonpositive photopic denominator is not robustly rejected.
-
-Its intermediate sums do not multiply by the wavelength step. A constant step
-can cancel in a ratio, but does not make the displayed PAR/lux sums correct
-absolute integrals. The input also assumes a header and a spectral-power
-column. The authentic CIE files are headerless and several contain multiple
-profiles, so direct import is not a safe installation procedure.
-
-The selector defaults to D65 `0.018043`; other conversion paths default to
-`0.0185`. The latter is 2.535% larger. This alone can produce different PPFD
-and DLI from the same lux if branches use different defaults. A numeric
-override also needs a corresponding custom label rather than retaining the
-name of a reference spectrum.
+Use Spectral Profile for a bundled reference and Custom Spectral Profile for an explicit numeric or CSV assumption. The numeric Lux to PPFD utility requires an explicit factor and has no universal default. Document source basis, wavelength coverage and receiving-light assumptions rather than comparing results with unmatched factors.
 
 ## 3. Reference data and reproducible factors
 

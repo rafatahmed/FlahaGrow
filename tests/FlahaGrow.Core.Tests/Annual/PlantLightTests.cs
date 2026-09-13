@@ -9,6 +9,46 @@ namespace FlahaGrow.Core.Tests.Annual;
 public sealed class PlantLightTests : IDisposable
 {
     [Fact]
+    public void CacheReuseAndCancellationPreserveFiles()
+    {
+        var path = CreateCache(2); var stamp = File.GetLastWriteTimeUtc(path);
+        var result = AnnualCacheLoader.Load(Path.GetDirectoryName(path)!, true, CancellationToken.None);
+        Assert.Equal(stamp, File.GetLastWriteTimeUtc(path)); Assert.Null(result.Weather);
+        using var cancel = new CancellationTokenSource(); cancel.Cancel();
+        Assert.Throws<OperationCanceledException>(() => AnnualCacheLoader.Load(Path.GetDirectoryName(path)!, true, cancel.Token));
+        Assert.Equal(stamp, File.GetLastWriteTimeUtc(path));
+    }
+
+    [Fact]
+    public void WeatherIsInheritedOnlyFromAuthenticatedSnapshot()
+    {
+        var path = CreateCache(2, withWeather: true);
+        var loaded = LoadedAnnualResult.From(AnnualIlluminanceResult.Open(path));
+        Assert.NotNull(loaded.Weather);
+        Assert.Equal(330, loaded.Weather!.UtcMinutes);
+        Assert.Equal("annual-365;UTC+05:30;local-standard;hourly", loaded.Weather.Alignment);
+        var snapshot = Path.Combine(Path.GetDirectoryName(path)!, "weather.epw");
+        File.AppendAllText(snapshot, "tampered");
+        Assert.Throws<InvalidDataException>(() => LoadedAnnualResult.From(AnnualIlluminanceResult.Open(path)));
+    }
+
+    [Fact]
+    public void PlotMetadataBindsValuesAndComputesAutomaticRanges()
+    {
+        var values = Enumerable.Range(0, 365).Select(i => (double)i).ToArray();
+        var plot = PlotAttributes.Create(values, "DLI", "mol/m²/day", "annual-daily", "sensor index 5", "test run");
+        plot.RequireMatching(values);
+        Assert.Equal(new[] { 0d, 91, 182, 273 }, plot.AutomaticRanges);
+        Assert.Contains("mol/m²/day", plot.Title);
+        Assert.Throws<ArgumentException>(() => plot.RequireMatching(values.Reverse().ToArray()));
+        Assert.Throws<ArgumentException>(() => PlotAttributes.Create(values, "PPFD", "units", "annual-hourly", "s", "p"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AnnualPlotData.Validate(Enumerable.Repeat(double.NaN, 365).ToArray(), plot.AutomaticRanges));
+        Assert.Equal(0, AnnualPlotData.Classify(0, plot.AutomaticRanges));
+        Assert.Equal("x ≤ 0", AnnualPlotData.IntervalLabel(0, plot.AutomaticRanges));
+        var flat = PlotAttributes.Create(Enumerable.Repeat(10d, 365).ToArray(), "DLI", "mol/m²/day", "annual-daily", "s", "p");
+        Assert.All(flat.AutomaticRanges, v => Assert.Equal(10, v));
+    }
+    [Fact]
     public void AnnualTimingUsesIntervalStartsAndStrictAlignment()
     {
         Assert.Equal(0, AnnualTime.HourIndex(1, 1, 0));
@@ -172,10 +212,28 @@ public sealed class PlantLightTests : IDisposable
         Assert.Throws<ArgumentException>(() => new PlantLightContext(AnnualIlluminanceResult.Open(path), new("Mixed", .0185)));
     }
 
-    private string CreateCache(int sensors, bool combined = false)
+    private string CreateCache(int sensors, bool combined = false, bool withWeather = false)
     {
         var inputs = combined ? new Dictionary<string, string> { ["daylightManifest"] = "source" } : new();
+        var weatherPath = Path.Combine(root, "source.epw");
+        if (withWeather)
+        {
+            Directory.CreateDirectory(root);
+            using (var writer = new StreamWriter(weatherPath))
+            {
+                writer.WriteLine("LOCATION,Test,-,-,-,-,25,51,5.5,10");
+                for (var i = 0; i < 7; i++) writer.WriteLine("header");
+                for (var i = 0; i < 8760; i++)
+                {
+                    var date = new DateTime(2001, 1, 1).AddHours(i);
+                    var fields = Enumerable.Repeat("0", 35).ToArray(); fields[0] = "2001"; fields[1] = date.Month.ToString(); fields[2] = date.Day.ToString(); fields[3] = (date.Hour + 1).ToString();
+                    writer.WriteLine(string.Join(",", fields));
+                }
+            }
+            inputs[weatherPath] = AnnualRun.HashFile(weatherPath);
+        }
         var folder = AnnualRun.Create(root, root, 1, Enumerable.Range(0, sensors).Select(i => $"{i} 0 0 0 0 1").ToArray(), inputs);
+        if (withWeather) File.Copy(weatherPath, Path.Combine(folder, "weather.epw"));
         var run = AnnualRun.Read(folder);
         var schedule = Enumerable.Repeat(1d, 8760).ToArray();
         File.WriteAllLines(Path.Combine(folder, "0.pts"), Enumerable.Range(0, sensors).Select(i => $"{i} 0 0 0 0 1"));

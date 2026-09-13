@@ -281,15 +281,12 @@ public sealed class AnnualSimulationComponent : FlahaGrowComponent
         var start = part * baseCount + Math.Min(part, remainder);
         return points.GetRange(start, count);
     }
-    private static string? FindRadianceBin(string requestedFolder)
-    {
-        var candidates = new List<string>();
-        if (!string.IsNullOrWhiteSpace(requestedFolder)) candidates.Add(requestedFolder);
-        candidates.AddRange((Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries));
-        candidates.Add(@"C:\Program Files\ladybug_tools\radiance\bin");
-        candidates.Add(@"C:\Radiance\bin");
-        return candidates.Select(path => path.Trim().Trim('"')).FirstOrDefault(path => File.Exists(Path.Combine(path, "rfluxmtx.exe")) && File.Exists(Path.Combine(path, "rmtxop.exe")));
-    }
+    private static string? FindRadianceBin(string requestedFolder) =>
+        new RadianceDiscovery().FindBin(RadianceRequest.FromSystem() with
+        {
+            ExplicitLocation = string.IsNullOrWhiteSpace(requestedFolder) ? null : requestedFolder,
+            Workflow = AnalysisWorkflow.AnnualDaylight
+        }, "rfluxmtx", "rmtxop");
     private static string Detail(string detail, int cpu) => detail.Contains('-') ? detail : detail.Trim().ToLowerInvariant() switch { "1" or "very low" => $"-lw .01 -ab 1 -ad 256 -n {cpu}", "2" or "low" => $"-lw .005 -ab 2 -ad 512 -n {cpu}", "4" or "high" => $"-lw .0015 -ab 3 -ad 1536 -n {cpu}", "5" or "very high" => $"-lw .001 -ab 3 -ad 2048 -n {cpu}", _ => $"-lw .002 -ab 2 -ad 1024 -n {cpu}" };
     private static string DirectParameters(string parameters)
     {

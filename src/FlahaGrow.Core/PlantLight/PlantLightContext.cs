@@ -9,16 +9,17 @@ public sealed class PlantLightContext
     public IReadOnlyList<PlantLightSource> Sources => Array.AsReadOnly(sources);
     public int Sensors => sources[0].Result.Sensors;
     public string TimeAxis { get; }
-    public string Description => $"Lux-derived estimated PPFD/DLI; PAR 400–700 nm; {Sensors} sensors (indices 0–{Sensors - 1}); 8760 × 3600 s; annual alignment {(TimeAxis.Length == 0 ? "unspecified; single-source indices only" : TimeAxis + " (user-declared, not verified)")}; "
+    public bool WeatherDerived { get; }
+    public string Description => $"Lux-derived estimated PPFD/DLI; PAR 400–700 nm; {Sensors} sensors (indices 0–{Sensors - 1}); 8760 × 3600 s; annual alignment {(TimeAxis.Length == 0 ? "unspecified; single-source indices only" : TimeAxis + (WeatherDerived ? " (verified EPW calendar; electric schedule association remains user-declared)" : " (user-declared, not verified)"))}; "
         + string.Join("; ", sources.Select(s => $"run {s.Result.RunId}, {s.Profile.Label}, factor {s.Profile.Factor:G9}, {s.Profile.Method}, {s.Profile.Provenance}"));
 
-    public PlantLightContext(AnnualIlluminanceResult result, SpectralProfile profile, string timeAxis = "")
-        : this(new[] { new PlantLightSource(result, profile) }, timeAxis) { }
+    public PlantLightContext(AnnualIlluminanceResult result, SpectralProfile profile, string timeAxis = "", bool weatherDerived = false)
+        : this(new[] { new PlantLightSource(result, profile) }, timeAxis, weatherDerived) { }
 
-    private PlantLightContext(PlantLightSource[] items, string timeAxis)
+    private PlantLightContext(PlantLightSource[] items, string timeAxis, bool weatherDerived = false)
     {
         if (items.Length == 0) throw new ArgumentException("At least one source required.");
-        sources = items.ToArray(); TimeAxis = AnnualTime.ValidateAxis(timeAxis);
+        sources = items.ToArray(); TimeAxis = AnnualTime.ValidateAxis(timeAxis); WeatherDerived = weatherDerived;
         foreach (var s in sources)
         {
             if (s.Result.IsCombinedLux)
@@ -36,7 +37,7 @@ public sealed class PlantLightContext
         var axis = contexts[0].TimeAxis;
         if (string.IsNullOrWhiteSpace(axis) || contexts.Any(c => c.TimeAxis != axis))
             throw new ArgumentException("Mixed sources require the same explicit time-axis declaration (calendar, local standard time, timezone and interval convention). Counts alone are insufficient.");
-        return new(contexts.SelectMany(c => c.sources).ToArray(), axis);
+        return new(contexts.SelectMany(c => c.sources).ToArray(), axis, contexts.All(c => c.WeatherDerived));
     }
 
     private double[] Sum(Func<AnnualIlluminanceResult, double[]> read)

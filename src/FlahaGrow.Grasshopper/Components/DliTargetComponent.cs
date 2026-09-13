@@ -36,9 +36,9 @@ public sealed class DliTargetComponent : FlahaGrowComponent
             return;
         }
 
-        if (target < 0 || dailyDli.Any(value => value < 0))
+        if (!double.IsFinite(target) || target < 0 || dailyDli.Any(value => !double.IsFinite(value) || value < 0))
         {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "DLI values and the target must be zero or greater.");
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "DLI values and the target must be finite and zero or greater.");
             return;
         }
 

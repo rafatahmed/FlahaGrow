@@ -8,8 +8,6 @@ namespace FlahaGrow.Grasshopper.Components;
 /// </summary>
 public sealed class LuxToPpfdComponent : FlahaGrowComponent
 {
-    private const double DefaultConversionFactor = 0.0185;
-
     public LuxToPpfdComponent()
         : base(
             "Lux to PPFD",
@@ -29,8 +27,7 @@ public sealed class LuxToPpfdComponent : FlahaGrowComponent
             "Conversion factor",
             "Factor",
             "Micromoles per square metre per second per lux. Use a value derived from the active light spectrum.",
-            GH_ParamAccess.item,
-            DefaultConversionFactor);
+            GH_ParamAccess.item);
     }
 
     protected override void RegisterOutputParams(GH_OutputParamManager parameters)
@@ -41,14 +38,14 @@ public sealed class LuxToPpfdComponent : FlahaGrowComponent
     protected override void SolveInstance(IGH_DataAccess dataAccess)
     {
         double illuminance = 0;
-        double conversionFactor = DefaultConversionFactor;
+        double conversionFactor = 0;
 
         if (!dataAccess.GetData(0, ref illuminance))
         {
             return;
         }
 
-        dataAccess.GetData(1, ref conversionFactor);
+        if (!dataAccess.GetData(1, ref conversionFactor)) return;
 
         try { dataAccess.SetData(0, PlantLightMath.Ppfd(illuminance, conversionFactor)); }
         catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }

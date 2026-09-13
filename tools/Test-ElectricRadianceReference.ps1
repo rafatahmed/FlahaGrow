@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$RadianceBin = 'C:\Program Files\ladybug_tools\radiance\bin',
+    [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$RadianceBin,
     [switch]$Keep
 )
 

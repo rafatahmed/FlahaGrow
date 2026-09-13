@@ -7,14 +7,11 @@ using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components;
 
-public abstract class OpaqueMaterialSelectorComponent : FlahaGrowComponent
+public sealed class OpaqueMaterialComponent : FlahaGrowComponent
 {
     private string? selected;
-    protected OpaqueMaterialSelectorComponent(string name, string nickname, string description, Guid id)
-        : base(name, nickname, description, "FlahaGrow", "01 Materials") => ComponentId = id;
-
-    private Guid ComponentId { get; }
-    public override Guid ComponentGuid => ComponentId;
+    public OpaqueMaterialComponent() : base("Opaque Material", "Opaque Mat", "Selects a Radiance opaque material for any opaque surface.", "FlahaGrow", "01 Materials") { }
+    public override Guid ComponentGuid => new("29e2836f-5da0-4e4c-bdac-990365a0471e");
 
     protected override void RegisterInputParams(GH_InputParamManager parameters)
     {
@@ -57,26 +54,6 @@ public abstract class OpaqueMaterialSelectorComponent : FlahaGrowComponent
         selected = reader.ItemExists("Selected") ? reader.GetString("Selected") : null;
         return base.Read(reader);
     }
-}
-
-public sealed class FacadeMaterialComponent : OpaqueMaterialSelectorComponent
-{
-    public FacadeMaterialComponent() : base("Facade Material", "Facade Mat", "Selects a Radiance opaque material for the façade.", new Guid("29e2836f-5da0-4e4c-bdac-990365a0471e")) { }
-}
-
-public sealed class FrameMaterialComponent : OpaqueMaterialSelectorComponent
-{
-    public FrameMaterialComponent() : base("Frame Material", "Frame Mat", "Selects a Radiance opaque material for the frame.", new Guid("97544a63-5ca5-4255-bd41-8b8ea8d0a2ef")) { }
-}
-
-public sealed class GroundMaterialComponent : OpaqueMaterialSelectorComponent
-{
-    public GroundMaterialComponent() : base("Ground Material", "Ground Mat", "Selects a Radiance opaque material for the ground.", new Guid("747f6a35-6fbc-4231-a042-75fb7a18f7b4")) { }
-}
-
-public sealed class ConcreteMaterialComponent : OpaqueMaterialSelectorComponent
-{
-    public ConcreteMaterialComponent() : base("Concrete Material", "Concrete Mat", "Selects a Radiance opaque material for concrete.", new Guid("2befd6cd-dde7-4e45-9f0d-2ff0089c065d")) { }
 }
 
 internal static class MaterialSelectionDialog

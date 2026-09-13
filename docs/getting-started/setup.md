@@ -28,10 +28,9 @@ crop-light assumption. A working annual daylight definition needs:
    are read.
 3. A ready annual-daylight Radiance Environment connected to **Annual
    Simulation**.
-4. A factor for converting illuminance to PPFD. Use **Select Spectral Factor**
-   for a persisted standard/custom value, or **Load Spectral Data** with a CSV
-   that provides wavelength and spectral-power columns. Do not assume the
-   default `0.0185` is valid for every daylight, glazing, or luminaire case.
+4. A source-specific profile from **Spectral Profile**, or an explicit factor/CSV
+   through **Custom Spectral Profile**. Lux to PPFD requires an explicit
+   factor; no default represents every daylight, glazing or luminaire case.
 5. A complete hourly PPFD series and a 3,600-second timestep for a normal
    annual DLI calculation.
 

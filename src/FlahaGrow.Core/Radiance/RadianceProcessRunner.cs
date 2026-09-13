@@ -41,22 +41,18 @@ public sealed class RadianceProcessRunner : IRadianceProcessRunner
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException)
         { return new(ProcessState.Failed, null, "", "", false, ex.Message); }
 
-        if (command.StandardInput is not null)
-        {
-            await process.StandardInput.WriteAsync(command.StandardInput.AsMemory(), cancellationToken).ConfigureAwait(false);
-            process.StandardInput.Close();
-        }
-
         using var timeout = new CancellationTokenSource(command.Timeout);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
         var stdout = DrainAsync(process.StandardOutput, command.OutputLimit, stop.Token);
         var stderr = DrainAsync(process.StandardError, command.OutputLimit, stop.Token);
+        var input = command.StandardInput is null ? Task.FromResult<string?>(null)
+            : WriteInputAsync(process.StandardInput, command.StandardInput, stop.Token);
         var state = ProcessState.Exited;
         string? diagnostic = null;
         try
         {
             await process.WaitForExitAsync(stop.Token).ConfigureAwait(false);
-            await Task.WhenAll(stdout, stderr).WaitAsync(stop.Token).ConfigureAwait(false);
+            await Task.WhenAll(stdout, stderr, input).WaitAsync(stop.Token).ConfigureAwait(false);
             if (stop.IsCancellationRequested) throw new OperationCanceledException(stop.Token);
         }
         catch (OperationCanceledException)
@@ -72,7 +68,23 @@ public sealed class RadianceProcessRunner : IRadianceProcessRunner
         }
         var output = await stdout.ConfigureAwait(false);
         var error = await stderr.ConfigureAwait(false);
+        var inputError = await input.ConfigureAwait(false);
+        if (state == ProcessState.Exited && inputError is not null)
+        { state = ProcessState.Failed; diagnostic = inputError; }
         return new(state, process.HasExited ? process.ExitCode : null, output.Text, error.Text, output.Truncated || error.Truncated, diagnostic);
+    }
+
+    private static async Task<string?> WriteInputAsync(StreamWriter writer, string input, CancellationToken token)
+    {
+        try
+        {
+            await writer.WriteAsync(input.AsMemory(), token).ConfigureAwait(false);
+            await writer.FlushAsync().WaitAsync(token).ConfigureAwait(false);
+            writer.Close();
+            return null;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (IOException ex) { return "Process input: " + ex.Message; }
     }
 
     private static async Task<(string Text, bool Truncated)> DrainAsync(StreamReader reader, int limit, CancellationToken token)

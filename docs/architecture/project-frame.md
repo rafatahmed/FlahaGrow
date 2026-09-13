@@ -15,7 +15,7 @@ FlahaGrow.Core            workspace, Radiance discovery, annual contracts
 src/Library               bundled material, glazing, and IES assets
 ```
 
-`src/FlahaGrow.Grasshopper` builds `FlahaGrow.gha` for Rhino 8 on Windows. It references `FlahaGrow.Core`, Grasshopper, and an embedded legacy spectral Python resource. `src/FlahaGrow.Core` targets plain `net7.0` and has no Grasshopper dependency. `src/Code` is retained as legacy GhPython behavioral reference; the compiled plugin does not execute it.
+`src/FlahaGrow.Grasshopper` builds `FlahaGrow.gha` for Rhino 8 on Windows. It references `FlahaGrow.Core` and Grasshopper; spectral calculations run in Core. `src/FlahaGrow.Core` targets plain `net7.0` and has no Grasshopper dependency. `src/Code` is historical GhPython source outside the compiled build; it is intentionally preserved at the user’s request and is not registered or packaged as plugin components.
 
 | Concern | Owner / contract |
 | --- | --- |

@@ -1,23 +1,18 @@
 # Contributing to FlahaGrow
 
-## Scope and conventions
+Implement Grasshopper components in `src/FlahaGrow.Grasshopper` and reusable calculations in `src/FlahaGrow.Core`. Store Radiance assets in `src/Library`. Avoid adding separate component classes for identical behavior; use instance inputs or shared purpose where appropriate.
 
-- Keep Grasshopper component scripts in their numbered workflow stage under `src/Code`.
-- Preserve the existing component-facing variable conventions (for example, `_run`, `_folder`, and `ghenv`) unless the corresponding Grasshopper definition is updated too.
-- Store reusable Radiance materials, glazing, IES profiles, and textures under `src/Library`.
-- Do not commit local simulation outputs, render files, cache files, or machine-specific paths.
+Every executable component must be visible, have a unique identity and purpose, and appear exactly once in the revision ledger, README catalog and category reference. Typed wire parameters must be used by registered ports. Every runtime icon must match a current component or the plugin logo.
 
-## Validation before a change is merged
+Before merging, run:
 
-For the shared Setup core, run `dotnet test tests/FlahaGrow.Core.Tests/FlahaGrow.Core.Tests.csproj --configuration Release` and `dotnet build FlahaGrow.sln --configuration Release`. The Windows path tests run outside Rhino. See [the Setup foundation notes](docs/archive/setup-foundation.md) for implemented scope and host validation still required.
+```powershell
+dotnet test tests/FlahaGrow.Core.Tests/FlahaGrow.Core.Tests.csproj --configuration Release
+.\tools\Test-SetupComponents.ps1 -NoRestore
+.\tools\Test-ComponentDocumentation.ps1
+.\tools\Test-PluginAudit.ps1
+```
 
-Run validation in the environment the component targets:
+Validate changed Radiance commands with the relevant reference fixture. Live dialogs and canvas wiring require Rhino acceptance; CLR smoke tests do not replace it. Record source spectra for photon calculations and verify 8,760 hourly / 365 daily shapes where required.
 
-1. Confirm the script loads in its Grasshopper Python component without syntax or import errors.
-2. For changes touching Radiance commands, verify Radiance detection and execute a small point-in-time case.
-3. For annual-result changes, verify expected dimensions (8,760 hourly values and 365 daily DLI values where applicable).
-4. For PPFD conversion changes, record the selected spectral source and conversion factor used for the check.
-
-## Pull requests
-
-Describe the simulation stage affected, the sample model/material/light used to validate it, and any expected impact on PPFD, DLI, or energy results.
+Update contracts and documentation with implementation changes. Incompatible port changes need a new GUID and explicit update guidance. Do not commit generated simulation outputs, local caches or machine-specific credentials. PRs should describe behavior, validation and any saved-definition impact.

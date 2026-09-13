@@ -49,4 +49,24 @@ public sealed class ProcessRunnerTests
         var report = await new RadianceProcessRunner().RunAsync(Command("") with { Executable = @"C:\FlahaGrow-missing\none.exe" });
         Assert.Equal(ProcessState.Failed, report.State); Assert.Null(report.ExitCode); Assert.NotEmpty(report.Diagnostic!);
     }
+
+    [Fact]
+    public async Task TimeoutIncludesBlockedStandardInput()
+    {
+        var report = await new RadianceProcessRunner().RunAsync(Command("Start-Sleep -Seconds 30") with
+        { StandardInput = new string('x', 2_000_000), Timeout = TimeSpan.FromMilliseconds(500) }).WaitAsync(TimeSpan.FromSeconds(8));
+        Assert.Equal(ProcessState.TimedOut, report.State);
+        Assert.NotNull(report.ExitCode);
+    }
+
+    [Fact]
+    public async Task OutputIsDrainedWhileLargeInputIsWritten()
+    {
+        var report = await new RadianceProcessRunner().RunAsync(Command(
+            "[Console]::Out.Write(('x' * 200000)); [Console]::Error.Write(('y' * 200000)); $inputText = [Console]::In.ReadToEnd(); if ($inputText.Length -ne 200000) { exit 9 }", 128) with
+        { StandardInput = new string('z', 200000) });
+        Assert.Equal(ProcessState.Exited, report.State);
+        Assert.Equal(0, report.ExitCode);
+        Assert.True(report.OutputTruncated);
+    }
 }

@@ -15,15 +15,27 @@ internal static class PlantLightIntegrationChecks
         var run = AnnualRun.Read(folder);
         ElectricAnnualMatrix.WriteRun(folder, run, Enumerable.Range(1, 13).Select(i => i * 1000d).ToArray(), Enumerable.Repeat(1d, 8760).ToArray());
         foreach (var part in run.Parts) File.WriteAllText(Path.Combine(folder, part.StateFile), run.RunId.ToString("N") + " CommandsSucceeded");
-        var cache = Solve(new AnnualResultCacheComponent(), new() { [0] = folder, [1] = true });
+        var loader = new AnnualResultCacheComponent();
+        var cache = Solve(loader, new() { [0] = folder, [1] = true });
+        var cacheStamp = File.GetLastWriteTimeUtc((string)cache.Outputs[0]!);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        for (var i = 0; i < 100; i++) Solve(loader, new() { [0] = folder, [1] = true });
+        watch.Stop();
+        if (File.GetLastWriteTimeUtc((string)cache.Outputs[0]!) != cacheStamp) throw new Exception("Held Build True rewrote the cache.");
+        Console.WriteLine($"PASS held-True cache reuse: 100 warm solves in {watch.Elapsed.TotalMilliseconds:F2} ms; cache not rewritten (13 sensors, test adapter).");
         var profile = Solve(new CustomSpectralProfileComponent(), new() { [0] = "Fixture assumption", [1] = .0185 });
-        var context = Solve(new PlantLightContextComponent(), new() { [0] = cache.Outputs[0]!, [1] = profile.Outputs[0]! });
+        var context = Solve(new PlantLightContextComponent(), new() { [3] = cache.Outputs[4]!, [1] = profile.Outputs[0]! });
         if (context.Outputs[0] is not PlantLightContextGoo) throw new Exception("No typed context.");
         Dictionary<int, object> Inputs(int index) => new() { [0] = context.Outputs[0]!, [1] = index };
         var hour = Solve(new PpfdAtHourComponent(), Inputs(23));
         var sensor = Solve(new AnnualPpfdAtSensorComponent(), Inputs(12));
         var day = Solve(new DliForDayComponent(), Inputs(0));
         var annual = Solve(new AnnualDliAtSensorComponent(), Inputs(12));
+        var plot = Solve(new AnnualPlotComponent(), new() { [0] = annual.Outputs[0]!, [14] = annual.Outputs[2]! });
+        Solve(new AnnualPlotComponent(), new() { [0] = annual.Outputs[0]!, [14] = annual.Outputs[2]!, [1] = 100d, [2] = 0d }); // auto overrides stale manual thresholds
+        Solve(new AnnualPlotComponent(), new() { [0] = annual.Outputs[0]!, [14] = annual.Outputs[2]!, [1] = 100d, [2] = 0d, [15] = true }, expectError: true);
+        var wrongPlot = Solve(new AnnualPlotComponent(), new() { [0] = sensor.Outputs[0]!, [14] = annual.Outputs[2]! }, expectError: true);
+        var gridPlot = Solve(new AnnualPlotComponent(), new() { [0] = hour.Outputs[0]!, [14] = hour.Outputs[2]! }, expectError: true);
         var hourlyValues = ((IEnumerable<double>)hour.Outputs[0]!).ToArray();
         var sensorValues = ((IEnumerable<double>)sensor.Outputs[0]!).ToArray();
         var dayValues = ((IEnumerable<double>)day.Outputs[0]!).ToArray();
@@ -42,18 +54,29 @@ internal static class PlantLightIntegrationChecks
         var csv = Path.Combine(root, "spectrum.csv");
         File.WriteAllText(csv, "wavelength_nm,value\n360,1\n830,1\n");
         var imported = Solve(new CustomSpectralProfileComponent(), new() { [0] = "Energy reference", [2] = csv });
-        var legacy = Solve(new LoadSpectralDataComponent(), new() { [2] = csv });
-        if (Math.Abs((double)legacy.Outputs[0]! - ((SpectralProfileGoo)imported.Outputs[0]!).Value.Factor) > 1e-12)
-            throw new Exception("Legacy/new spectral calculation diverged.");
-        var expectedLux = (double)legacy.Outputs[1]! / (double)legacy.Outputs[0]!;
-        if (Math.Abs((double)legacy.Outputs[2]! - expectedLux) > 1e-7) throw new Exception("Integrated legacy lux omitted photopic scale.");
-        Console.WriteLine("PASS plant-light pipeline: 13-sensor Load Result, explicit/CSV profiles, typed context, four independent readers, daily tree, invalid day, ambiguous profile rejection and shared legacy spectral math.");
+        if (((SpectralProfileGoo)imported.Outputs[0]!).Value.Factor <= 0)
+            throw new Exception("Imported spectral profile has no positive conversion factor.");
+        var numeric = new LuxToPpfdComponent();
+        if (numeric.Params.Input[1].Optional || ((Grasshopper.Kernel.Parameters.Param_Number)numeric.Params.Input[1]).PersistentDataCount != 0)
+            throw new Exception("Numeric PPFD conversion must require an explicit spectral factor.");
+        if (Solve(numeric, new() { [0] = 1000d }).Outputs.ContainsKey(0))
+            throw new Exception("Numeric PPFD conversion silently selected a factor.");
+        var explicitNumeric = Solve(new LuxToPpfdComponent(), new() { [0] = 1000d, [1] = .02 });
+        if ((double)explicitNumeric.Outputs[0]! != 20d) throw new Exception("Explicit numeric factor was not applied.");
+        Console.WriteLine("PASS plant-light pipeline: 13-sensor Load Result, explicit/CSV profiles, typed context, four independent readers, daily tree, invalid day, ambiguous profile rejection and CSV spectral import.");
     }
 
     private static TestData Solve(GH_Component component, Dictionary<int, object> inputs, bool expectError = false)
     {
         var data = TestData.Create(inputs);
         component.GetType().GetMethod("SolveInstance", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(component, new object[] { data.Access });
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (component is AnnualResultCacheComponent loader && loader.IsLoading && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(10); data.Outputs.Clear();
+            component.GetType().GetMethod("SolveInstance", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(component, new object[] { data.Access });
+        }
+        if (component is AnnualResultCacheComponent pending && pending.IsLoading) throw new Exception("Async cache load timed out.");
         var errors = component.RuntimeMessages(GH_RuntimeMessageLevel.Error);
         if (expectError ? errors.Count == 0 : errors.Count != 0)
             throw new Exception(component.Name + ": unexpected solve status: " + string.Join("; ", errors));

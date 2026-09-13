@@ -12,12 +12,12 @@ clock shifts or February 29. Choosing 13:00 means the interval 13:00–14:00.
 | Date | Panel only | Readable interval label, not a machine alignment token |
 | Alignment | Plant Light Context.Alignment | Entire annual time axis, not a selected hour/day |
 
-Alignment is optional for a single-source context. For mixed sources, enter the
-actual simulation/weather-file UTC offset in **Hour Index.UTC min**, for example
-180 for UTC+03:00. Its Alignment output supplies the required format automatically.
-Use it for each source only after verifying that their Jan–Dec calendars and
-schedules really match. This declares alignment; it does not validate or resample
-run metadata. Do not use the computer's current time or connect Date to Alignment.
+Connect **Load Annual Result.Result → Hour Index.Result**. UTC and location now
+come automatically from the run's verified EPW snapshot. The old UTC input is
+deprecated and ignored; disconnect it. Connect Result directly to Plant Light
+Context.Result as well, leaving its legacy Alignment and F32 inputs empty.
+See the [result/weather/plot contract](result-weather-plot-contract.md) for missing
+weather and electric schedule associations. Do not connect Date to Alignment.
 
 Plant Light Context binds the whole annual result and spectrum. It has no Hour
 selection input. PPFD at Hour selects one hour; DLI for Day integrates all 24 hours

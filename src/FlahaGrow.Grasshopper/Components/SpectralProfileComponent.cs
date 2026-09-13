@@ -18,7 +18,7 @@ public sealed class SpectralProfileComponent : FlahaGrowComponent
     protected override void RegisterOutputParams(GH_OutputParamManager p)
     {
         p.AddParameter(new SpectralProfileParameter(), "Spectral Profile", "Profile", "Connect to Plant Light Context → Profile.", GH_ParamAccess.item);
-        p.AddNumberParameter("Conversion factor", "Factor", "µmol/m²/s per lux. For legacy numeric Factor inputs only; the typed Profile already includes this value.", GH_ParamAccess.item);
+        p.AddNumberParameter("Conversion factor", "Factor", "µmol/m²/s per lux. For numeric conversion inputs; the typed Profile already includes this value.", GH_ParamAccess.item);
         p.AddTextParameter("Status", "Status", "Selected reference, source DOI, method and limitations. Connect to a Panel to inspect.", GH_ParamAccess.item);
     }
     protected override void SolveInstance(IGH_DataAccess da)

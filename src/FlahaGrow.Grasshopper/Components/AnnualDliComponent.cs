@@ -42,7 +42,7 @@ public sealed class AnnualDliComponent : FlahaGrowComponent
         {
             var values = PlantLightMath.AnnualDli(ppfd, timestepSeconds);
             dataAccess.SetDataList(0, values);
-            dataAccess.SetData(1, values.Average());
+            dataAccess.SetData(1, values.Sum(value => value / values.Length));
         }
         catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message); }
     }

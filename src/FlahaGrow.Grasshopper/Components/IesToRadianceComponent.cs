@@ -1,7 +1,7 @@
-using System.Diagnostics;
-using System.Globalization;
 using System.Text.RegularExpressions;
 using FlahaGrow.Core.Projects;
+using FlahaGrow.Core.Operations;
+using FlahaGrow.Grasshopper.Components.Setup;
 using FlahaGrow.Core.Radiance;
 using FlahaGrow.Grasshopper.Parameters;
 using Grasshopper.Kernel;
@@ -9,9 +9,12 @@ using Grasshopper.Kernel;
 namespace FlahaGrow.Grasshopper.Components;
 
 /// <summary>Runs ies2rad and applies the legacy three-channel RGB normalization.</summary>
-public sealed class IesToRadianceComponent : FlahaGrowComponent
+public sealed class IesToRadianceComponent : AsyncSetupComponent<IesConversionResult>
 {
-    public IesToRadianceComponent() : base("IES to Radiance", "IES→Rad", "Converts an IES luminaire to Radiance files and applies normalized RGB channels.", "FlahaGrow", "04 Electric Light") { }
+    private readonly ActionLatch runLatch = new();
+    public bool IsConverting => Status == "Working…";
+
+    public IesToRadianceComponent() : base("IES to Radiance", "IES→Rad", "Converts an IES luminaire to Radiance files and applies normalized RGB channels.", "04 Electric Light") { }
     public override Guid ComponentGuid => new("e64e15f4-7cee-48b2-a232-2064d3a9e602");
 
     protected override void RegisterInputParams(GH_InputParamManager parameters)
@@ -21,10 +24,10 @@ public sealed class IesToRadianceComponent : FlahaGrowComponent
         parameters.AddNumberParameter("Red", "R", "Red channel multiplier.", GH_ParamAccess.item, 1.0);
         parameters.AddNumberParameter("Green", "G", "Green channel multiplier.", GH_ParamAccess.item, 1.0);
         parameters.AddNumberParameter("Blue", "B", "Blue channel multiplier.", GH_ParamAccess.item, 1.0);
-        parameters.AddNumberParameter("Multiplier", "M", "Optional ies2rad multiplier.", GH_ParamAccess.item); parameters[5].Optional = true;
+        parameters.AddNumberParameter("Multiplier", "M", "Optional finite positive ies2rad multiplier; leave unwired to use the converter default.", GH_ParamAccess.item); parameters[5].Optional = true;
         parameters.AddTextParameter("Project folder", "Project", "Simulation project folder; Luminaire_files is created inside it.", GH_ParamAccess.item);
         parameters.AddTextParameter("DAT file", "DAT", "Optional replacement data-file path.", GH_ParamAccess.item); parameters[7].Optional = true;
-        parameters.AddBooleanParameter("Run", "Run", "Run ies2rad and rewrite generated .rad files.", GH_ParamAccess.item, false);
+        parameters.AddBooleanParameter("Run", "Run", "Connect a Button. False to True starts background conversion once; timeout is two minutes. Changed inputs or closing the document cancel pending work.", GH_ParamAccess.item, false);
         parameters.AddTextParameter("Radiance bin folder", "Bin", "Optional folder containing ies2rad.exe. Leave empty for automatic detection.", GH_ParamAccess.item); parameters[9].Optional = true;
         parameters.AddParameter(new RadianceParameter(), "Radiance Environment", "Radiance", "Optional checked Radiance Status environment. When connected, it must be ready for electric-light preparation and determines the exact executable environment.", GH_ParamAccess.item); parameters[10].Optional = true;
     }
@@ -38,77 +41,65 @@ public sealed class IesToRadianceComponent : FlahaGrowComponent
 
     protected override void SolveInstance(IGH_DataAccess dataAccess)
     {
-        string ies = string.Empty, name = string.Empty, project = string.Empty, dat = string.Empty, radianceBin = string.Empty; var radiance = new RadianceGoo();
+        string ies = string.Empty, name = string.Empty, project = string.Empty, dat = string.Empty, radianceBin = string.Empty;
+        var radiance = new RadianceGoo();
         double r = 1, g = 1, b = 1, multiplier = 0; var run = false;
-        if (!dataAccess.GetData(0, ref ies) || !dataAccess.GetData(6, ref project)) return;
-        dataAccess.GetData(1, ref name); dataAccess.GetData(2, ref r); dataAccess.GetData(3, ref g); dataAccess.GetData(4, ref b); dataAccess.GetData(5, ref multiplier); dataAccess.GetData(7, ref dat); dataAccess.GetData(8, ref run); dataAccess.GetData(9, ref radianceBin); dataAccess.GetData(10, ref radiance);
-        if (!File.Exists(ies)) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "IES path was not found."); return; }
-        RadianceInstallation? verifiedEnvironment;
+        if (!dataAccess.GetData(0, ref ies) || !dataAccess.GetData(6, ref project)) { Invalidate(); return; }
+        dataAccess.GetData(1, ref name); dataAccess.GetData(2, ref r); dataAccess.GetData(3, ref g); dataAccess.GetData(4, ref b);
+        var hasMultiplier = dataAccess.GetData(5, ref multiplier);
+        dataAccess.GetData(7, ref dat); dataAccess.GetData(8, ref run); dataAccess.GetData(9, ref radianceBin); dataAccess.GetData(10, ref radiance);
         try
         {
-            verifiedEnvironment = radiance.IsValid ? RadianceExecutionEnvironment.Require(radiance.Value, AnalysisWorkflow.ElectricLighting, radianceBin) : null;
+            var rgb = LuminaireOutput.Normalize(r, g, b);
+            if (hasMultiplier && (!double.IsFinite(multiplier) || multiplier <= 0)) throw new ArgumentException("Multiplier must be finite and positive when supplied.");
+            ies = Path.GetFullPath(ies);
+            if (!File.Exists(ies)) throw new FileNotFoundException("IES file was not found.", ies);
+            if (!string.IsNullOrWhiteSpace(dat) && !File.Exists(dat)) throw new FileNotFoundException("DAT override was not found.", dat);
+            project = ProjectLayout.Absolute(project);
             if (!radiance.IsValid && Params.Input[10].SourceCount > 0) throw new InvalidOperationException("Connected Radiance environment is unresolved.");
+            var verified = radiance.IsValid ? RadianceExecutionEnvironment.Require(radiance.Value, AnalysisWorkflow.ElectricLighting, radianceBin) : null;
+            var stem = SanitizeStem(string.IsNullOrWhiteSpace(name) ? Path.GetFileNameWithoutExtension(ies) : name, "luminaire");
+            var executable = verified is null ? FindIes2Rad(radianceBin) : verified.Executables.GetValueOrDefault("ies2rad");
+            if (executable is null)
+            {
+                Invalidate(); runLatch.Observe(run);
+                if (run) throw new FileNotFoundException("ies2rad.exe was not found. Provide the Radiance bin folder.");
+                dataAccess.SetData(2, "Waiting for Run and a Radiance installation. No files written."); return;
+            }
+            var environment = verified is null
+                ? RadianceStatusService.ChildEnvironment(new RadianceInstallation(Path.GetDirectoryName(executable)!, Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(executable))!, "lib"), new Dictionary<string, string>(), Array.Empty<string>(), "conversion"))
+                : RadianceStatusService.ChildEnvironment(verified);
+            var request = new IesConversionRequest(ies, LuminairePathResolver.ResolveFolder(project), stem,
+                executable, environment, r, g, b, hasMultiplier ? multiplier : null, dat);
+            Update(Key(request), runLatch.Observe(run), token => new IesConversionService().ConvertAsync(request, token), "Waiting for Run.");
+            if (Result is { } result)
+            {
+                dataAccess.SetDataList(0, new[] { result.RadianceFile }); dataAccess.SetDataList(1, result.DataFiles);
+                dataAccess.SetData(2, $"{result.Process.StandardOutput}\n{result.Process.StandardError}\nNormalized RGB: {rgb.R:0.######}, {rgb.G:0.######}, {rgb.B:0.######}. Output truncated: {result.Process.OutputTruncated}.");
+            }
+            else
+            {
+                dataAccess.SetData(2, Status);
+                if (!IsConverting && !Status.StartsWith("Waiting", StringComparison.Ordinal)) AddRuntimeMessage(GH_RuntimeMessageLevel.Error, Status);
+            }
         }
-        catch (Exception exception) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, exception.Message); return; }
-        name = string.IsNullOrWhiteSpace(name) ? Path.GetFileNameWithoutExtension(ies) : name.Trim();
-        var outputStem = SanitizeStem(name, Path.GetFileNameWithoutExtension(ies));
-        var (nr, ng, nb) = Normalize(r, g, b);
-        project = ProjectLayout.Absolute(project);
-        var outputFolder = LuminairePathResolver.ResolveFolder(project);
-        Directory.CreateDirectory(outputFolder);
-        var command = $"ies2rad -o {outputStem} -t default{(multiplier != 0 ? $" -m {multiplier}" : string.Empty)} {ies}";
-        if (!run) { dataAccess.SetData(2, $"Waiting for Run. {command}"); return; }
-        try
-        {
-            var executable = verifiedEnvironment is null ? FindIes2Rad(radianceBin)
-                : verifiedEnvironment.Executables.GetValueOrDefault("ies2rad");
-            if (executable is null) throw new FileNotFoundException("ies2rad.exe was not found. Provide the Radiance bin folder.");
-            var start = new ProcessStartInfo(executable) { WorkingDirectory = outputFolder, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
-            if (verifiedEnvironment is not null)
-                foreach (var variable in RadianceStatusService.ChildEnvironment(verifiedEnvironment)) start.Environment[variable.Key] = variable.Value;
-            start.ArgumentList.Add("-o"); start.ArgumentList.Add(outputStem); start.ArgumentList.Add("-t"); start.ArgumentList.Add("default");
-            if (multiplier != 0) { start.ArgumentList.Add("-m"); start.ArgumentList.Add(multiplier.ToString(System.Globalization.CultureInfo.InvariantCulture)); }
-            start.ArgumentList.Add(ies);
-            using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start ies2rad.");
-            var stdout = process.StandardOutput.ReadToEnd(); var stderr = process.StandardError.ReadToEnd(); process.WaitForExit();
-            if (process.ExitCode != 0) throw new InvalidOperationException($"ies2rad failed: {stderr}");
-            // ies2rad's -o name is its output identity. Never substitute an unrelated
-            // newest file from a prior luminaire conversion on rerun.
-            var radFiles = new[] { Path.Combine(outputFolder, outputStem + ".rad") }.Where(File.Exists).ToList();
-            var datFiles = new[] { Path.Combine(outputFolder, outputStem + ".dat") }.Where(File.Exists).ToList();
-            if (radFiles.Count == 0) throw new FileNotFoundException($"ies2rad completed but did not produce the expected '{outputStem}.rad' output.");
-            var datPath = File.Exists(dat) ? Path.GetFullPath(dat).Replace('\\', '/') : datFiles.FirstOrDefault()?.Replace('\\', '/');
-            foreach (var radFile in radFiles) RewriteRad(radFile, nr, ng, nb, datPath);
-            dataAccess.SetDataList(0, radFiles); dataAccess.SetDataList(1, datFiles);
-            dataAccess.SetData(2, $"{command}\n{stdout}\nNormalized RGB: {nr:0.######}, {ng:0.######}, {nb:0.######}");
-        }
-        catch (Exception exception) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, exception.Message); }
+        catch (Exception exception) { Invalidate(); AddRuntimeMessage(GH_RuntimeMessageLevel.Error, exception.Message); }
     }
 
-    private static (double R, double G, double B) Normalize(double r, double g, double b)
-    {
-        var total = r * .265 + g * .67 + b * .065;
-        return total <= 0 ? (1, 1, 1) : (r * .265 / total, g * .67 / total, b * .065 / total);
-    }
+    public override bool Read(GH_IO.Serialization.GH_IReader reader) { Invalidate(); runLatch.Disarm(); return base.Read(reader); }
+
     private static string? FindIes2Rad(string binFolder)
     {
-        var candidates = new List<string>();
-        if (!string.IsNullOrWhiteSpace(binFolder)) candidates.Add(Path.Combine(binFolder, "ies2rad.exe"));
-        candidates.AddRange((Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries).Select(folder => Path.Combine(folder.Trim(), "ies2rad.exe")));
-        candidates.Add(@"C:\Program Files\ladybug_tools\radiance\bin\ies2rad.exe");
-        candidates.Add(@"C:\Radiance\bin\ies2rad.exe");
-        return candidates.FirstOrDefault(File.Exists);
+        var resolved = new RadianceDiscovery().FindBin(RadianceRequest.FromSystem() with
+        {
+            ExplicitLocation = string.IsNullOrWhiteSpace(binFolder) ? null : binFolder,
+            Workflow = AnalysisWorkflow.ElectricLighting
+        }, "ies2rad");
+        return resolved is null ? null : Path.Combine(resolved, "ies2rad.exe");
     }
     private static string SanitizeStem(string name, string fallback)
     {
         var stem = Regex.Replace(name, @"[^A-Za-z0-9._-]+", "_").Trim('_', '.');
         return string.IsNullOrWhiteSpace(stem) ? fallback : stem;
-    }
-    private static void RewriteRad(string path, double r, double g, double b, string? datPath)
-    {
-        var rgb = new Regex(@"^\s*3\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?\s*$");
-        var lines = File.ReadAllLines(path).Select(line => rgb.IsMatch(line) ? string.Format(CultureInfo.InvariantCulture, "3 {0:0.############} {1:0.############} {2:0.############}", r, g, b) : line).ToList();
-        if (!string.IsNullOrWhiteSpace(datPath)) lines = lines.Select(line => Regex.Replace(line, @"(?i)\S+\.dat", $"\"{datPath}\"")).ToList();
-        File.WriteAllLines(path, lines);
     }
 }

@@ -22,7 +22,7 @@ public sealed class SensorMarkerComponent : FlahaGrowComponent
         var point = Point3d.Unset; var gridSize = 0.0; var up = Vector3d.ZAxis;
         if (!da.GetData(0, ref point) || !da.GetData(1, ref gridSize)) return;
         da.GetData(2, ref up);
-        if (!point.IsValid || gridSize <= 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Provide a valid sensor point and a grid size greater than zero."); return; }
+        if (!point.IsValid || !double.IsFinite(gridSize) || gridSize <= 0 || gridSize > double.MaxValue / 10) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Provide a valid sensor point and a finite positive grid size within the supported numeric range."); return; }
         if (!up.IsValid || up.IsZero) up = Vector3d.ZAxis;
         up.Unitize();
         var sphere = new Sphere(point, gridSize * 0.5).ToBrep();

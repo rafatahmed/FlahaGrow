@@ -50,6 +50,11 @@ public sealed class LightingGeometryComponent : FlahaGrowComponent
     }
     private static string Build(Point3d point, double x, double y, double z, string file)
     {
+        if (!point.IsValid || !double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(z))
+            throw new ArgumentException("Placement points and rotations must be finite and valid.");
+        if (string.IsNullOrWhiteSpace(file) || file.Any(c => char.IsControl(c) || c is '"' or '%' or '!'))
+            throw new ArgumentException("Radiance path contains unsupported command characters.");
+        if (!File.Exists(file)) throw new FileNotFoundException("Luminaire Radiance file was not found.", file);
         var parts = new List<string> { "!xform" };
         if (Math.Abs(x) > 1e-12) parts.Add("-rx " + x.ToString("0.######", CultureInfo.InvariantCulture));
         if (Math.Abs(y) > 1e-12) parts.Add("-ry " + y.ToString("0.######", CultureInfo.InvariantCulture));

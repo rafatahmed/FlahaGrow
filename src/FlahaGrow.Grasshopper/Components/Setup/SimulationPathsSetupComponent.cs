@@ -8,7 +8,7 @@ using Grasshopper.Kernel;
 
 namespace FlahaGrow.Grasshopper.Components.Setup;
 
-public class ProjectPathsComponent : AsyncSetupComponent<PathResolution>
+public sealed class SimulationPathsSetupComponent : AsyncSetupComponent<PathResolution>
 {
     private readonly ActionLatch refreshLatch = new();
     private Guid draftId = Guid.NewGuid();
@@ -16,17 +16,14 @@ public class ProjectPathsComponent : AsyncSetupComponent<PathResolution>
     private PathSource pinnedSource;
     private Guid? pinnedId;
     private bool reset;
-    public ProjectPathsComponent() : this("Simulation Paths (Project)", "Project Paths") { }
-    protected ProjectPathsComponent(string name, string nickname) : base(name, nickname, "Resolves and remembers project and material-library locations without creating files. Right-click to reset the automatic location.") { }
-    protected virtual bool IncludeRadiance => true;
-    public override GH_Exposure Exposure => GH_Exposure.hidden;
-    public override Guid ComponentGuid => new("37c57f57-1be3-4eaa-aa88-12a20f0172ef");
+    public SimulationPathsSetupComponent() : base("Simulation Paths", "Paths", "Resolves and remembers project and material-library locations without creating files. Right-click to reset the automatic location.") { }
+    public override GH_Exposure Exposure => GH_Exposure.primary;
+    public override Guid ComponentGuid => new("71ce89f2-1439-4730-915f-07436692926c");
     protected override void RegisterInputParams(GH_InputParamManager p)
     {
         p.AddTextParameter("Project location", "Location", "Optional project root or project manifest path.", GH_ParamAccess.item); p[0].Optional = true;
         p.AddIntegerParameter("Location mode", "Mode", "0 Auto, 1 Project-relative, 2 System, 3 Custom.", GH_ParamAccess.item, 0);
         p.AddTextParameter("Library location", "Library", "Optional asset root or parent folder.", GH_ParamAccess.item); p[2].Optional = true;
-        if (IncludeRadiance) { p.AddTextParameter("Radiance location", "Radiance", "Optional Radiance root/bin location.", GH_ParamAccess.item); p[3].Optional = true; }
         p.AddBooleanParameter("Refresh", "Refresh", "Connect a Button to recheck files. Does not create folders.", GH_ParamAccess.item, false);
     }
     protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -34,24 +31,22 @@ public class ProjectPathsComponent : AsyncSetupComponent<PathResolution>
         p.AddParameter(new PathsParameter(), "Resolved Paths", "Paths", "Connect to Working Directory.", GH_ParamAccess.item);
         p.AddTextParameter("Project folder", "Folder", "Resolved project location; write access has not been tested.", GH_ParamAccess.item);
         p.AddTextParameter("Library folder", "Library", "Resolved asset root.", GH_ParamAccess.item);
-        if (IncludeRadiance) p.AddTextParameter("Radiance location", "Radiance", "Configured location; use Radiance Status to check readiness.", GH_ParamAccess.item);
         p.AddTextParameter("Status", "Status", "Resolution source and diagnostics.", GH_ParamAccess.item);
     }
     protected override void SolveInstance(IGH_DataAccess da)
     {
-        string location = "", library = "", radiance = ""; var mode = 0; var refresh = false;
+        string location = "", library = ""; var mode = 0; var refresh = false;
         da.GetData(0, ref location); da.GetData(1, ref mode); da.GetData(2, ref library);
-        if (IncludeRadiance) da.GetData(3, ref radiance);
-        da.GetData(IncludeRadiance ? 4 : 3, ref refresh);
-        var statusIndex = IncludeRadiance ? 4 : 3;
+        da.GetData(3, ref refresh);
+        var statusIndex = 3;
         var usePin = mode == 0 && string.IsNullOrWhiteSpace(location) && pinnedRoot is not null;
         var request = new PathRequest
         {
             Mode = (LocationMode)mode, ProjectLocation = usePin ? pinnedRoot : Optional(location),
             DefinitionPath = usePin ? null : Optional(OnPingDocument()?.FilePath),
             DocumentsFolder = Optional(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)), DraftId = draftId,
-            LibraryLocation = Optional(library), RadianceLocation = Optional(radiance),
-            ResolveRadianceLocation = IncludeRadiance,
+            LibraryLocation = Optional(library), RadianceLocation = null,
+            ResolveRadianceLocation = false,
             BundledLibraryLocation = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "shared", "Library", "FlahaGrow_Library_Small")
         };
         var expectedId = usePin ? pinnedId : null;
@@ -74,7 +69,6 @@ public class ProjectPathsComponent : AsyncSetupComponent<PathResolution>
             }
             da.SetData(0, new PathsGoo(paths)); da.SetData(1, paths.Project.Path);
             da.SetData(2, paths.Library?.Path);
-            if (IncludeRadiance) da.SetData(3, paths.RadianceLocation?.Path);
             da.SetData(statusIndex, $"{paths.Project.Source}: {paths.Project.Path}. Location resolved; write access unverified.");
         }
         else
@@ -104,12 +98,4 @@ public class ProjectPathsComponent : AsyncSetupComponent<PathResolution>
         if (reader.ItemExists("PinnedId")) pinnedId = reader.GetGuid("PinnedId");
         return base.Read(reader);
     }
-}
-
-public sealed class SimulationPathsSetupComponent : ProjectPathsComponent
-{
-    public SimulationPathsSetupComponent() : base("Simulation Paths", "Paths") { }
-    protected override bool IncludeRadiance => false;
-    public override GH_Exposure Exposure => GH_Exposure.primary;
-    public override Guid ComponentGuid => new("71ce89f2-1439-4730-915f-07436692926c");
 }

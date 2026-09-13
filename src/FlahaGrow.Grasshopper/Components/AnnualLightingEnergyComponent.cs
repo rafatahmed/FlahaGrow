@@ -36,13 +36,20 @@ public sealed class AnnualLightingEnergyComponent : FlahaGrowComponent
         }
 
         dataAccess.GetData(1, ref timestepSeconds);
-        if (timestepSeconds <= 0 || watts.Any(value => value < 0))
+        if (!double.IsFinite(timestepSeconds) || timestepSeconds <= 0 || watts.Any(value => !double.IsFinite(value) || value < 0))
         {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Timestep and power values must be zero or greater, with timestep greater than zero.");
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Power must be finite and nonnegative; timestep must be finite and greater than zero.");
             return;
         }
 
-        dataAccess.SetData(0, watts.Sum() * timestepSeconds / 3_600_000.0);
-        dataAccess.SetData(1, watts.Count * timestepSeconds / 3600.0);
+        var energy = watts.Sum(value => value * (timestepSeconds / 3_600_000.0));
+        var hours = watts.Count * (timestepSeconds / 3600.0);
+        if (!double.IsFinite(energy) || !double.IsFinite(hours))
+        {
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Energy or duration exceeds the supported numeric range.");
+            return;
+        }
+        dataAccess.SetData(0, energy);
+        dataAccess.SetData(1, hours);
     }
 }

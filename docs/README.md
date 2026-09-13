@@ -10,10 +10,13 @@ This documentation describes the repository as implemented. Source code is the a
 4. [Setup](getting-started/setup.md) — project contexts, assets, and Radiance readiness checks.
 5. [Annual daylight workflow](workflows/annual-workflow.md) — manifest-backed annual results and the cache contract.
 6. [Electric-light workflow](workflows/electric-light-workflow.md) — IES conversion, electric annual runs, and composition.
-7. [Component catalog](components/navigation.md) — registered component responsibilities.
-8. [Validation](quality/current-status.md) — automated checks versus host/reference acceptance.
+7. [Complete component reference](components/README.md) — all 30 components by category, exact ports, defaults, units, wiring, workflow and revisions; [toolbar navigation](components/navigation.md) provides the short overview.
+8. [Validation](quality/current-status.md) and [plugin audit](quality/plugin-audit.md) — automated checks, cleanup scope and remaining host/reference acceptance.
 
 ## Documentation rules
+
+Recommended current wiring: [Loaded Result → inherited weather → automatic plot attributes](workflows/result-weather-plot-contract.md).
+This supersedes manual UTC entry and manual reconstruction of plot titles/units.
 
 Implemented scalar pathway: [Plant-light workflow and component migration](workflows/plant-light-workflow.md)
 lists new and modified components, exact wiring, compatibility rules and open
@@ -23,8 +26,9 @@ also includes remaining, unimplemented work.
 Research evidence: [Daylight, LED and horticultural spectral profiles](research/plant-light/README.md)
 contains the deeper scientific report, original datasets, reproducible calculations
 and proposed profile contract. Core embeds the CIE photopic weighting data;
-the candidate source spectra are not enabled as plugin presets.
+18 reference source profiles are available through the Spectral Profile table,
+with explicit limitations acknowledgment; they are not certified fixture presets.
 
 - Document observable inputs, outputs, units, files, ownership, and failures.
-- Keep dated investigations in [archive](archive/); they do not define current behavior.
+- Use the [plugin audit](quality/plugin-audit.md) for current evidence; approved obsolete archive documents have been removed.
 - Update docs and tests whenever a component contract, manifest, cache format, or tool requirement changes.

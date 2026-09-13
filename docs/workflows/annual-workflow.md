@@ -50,40 +50,12 @@ matrix header, 8,760-row/hour contract, declared sensor counts, single
 component, finite values, non-negative illuminance, and provenance before it
 creates the cache.
 
-## Convert the validated result to PPFD
+## Read illuminance, PPFD and DLI
 
-Choose one consistent factor in μmol/m²/s per lux for the result being
-evaluated. The practical cache-native route is:
+Connect the validated F32 cache to Read Illuminance and choose hour or sensor mode. For plant-light quantities, connect Load Annual Result.Result and a source-specific Profile to Plant Light Context. Use PPFD at Hour or Annual PPFD at Sensor to read PPFD; DLI for Day and Annual DLI at Sensor integrate the same context independently.
 
-```text
-Load Annual Result → annualRfinal.f32
-       ├─ Hourly PAR (one hour, all sensors) → PPFD
-       └─ PAR Each Sensor (one sensor, 8,760 hours) → PPFD
-```
+Annual Plot displays an annual sensor series together with that reader's matching Plot attributes. A grid of sensors at one hour is not an annual temporal series.
 
-Both readers multiply each lux value by the supplied factor. For a factor
-derived from a custom spectrum, **Load Spectral Data** samples 380–780 nm,
-treats 400–700 nm as PAR, and returns the computed PPFD-per-lux factor from
-its photopic and photon-weighted sums. This is a factor calculation; Radiance's
-daylight matrix remains photometric. Document the spectral data, factor, and
-why it represents the study's daylight or combined-light condition.
+For externally supplied numeric data, Lux to PPFD applies `PPFD = lux × factor`. Annual DLI integrates a complete PPFD series; for hourly data each day's total is `Σ(PPFD × 3600) / 1,000,000` mol/m²/day.
 
-## Aggregate PPFD to DLI
-
-Send an 8,760-value PPFD series to **Annual DLI** with `dt=3600` seconds. It
-requires exactly 365 days and calculates each daily value as:
-
-```text
-DLI [mol/m²/day] = Σhourly(PPFD [μmol/m²/s] × 3,600 s) / 1,000,000
-```
-
-Alternatively, **DLI Each Sensor** reads the validated cache, applies its
-factor, and returns daily values for one zero-based sensor. **DLI Hourly**
-returns a selected 24-hour day's per-sensor total and hourly contributions.
-Use **DLI Target** only after DLI exists; it compares values with a target and
-does not simulate or convert light.
-
-See [run and cache contract](annual-run-isolation.md).
-
-For the underlying command-level method, weather convention, parameter presets,
-and calculation boundaries, see [Radiance methods](../architecture/radiance-methods.md).
+See the [plant-light workflow](plant-light-workflow.md) for source composition and the [component reference](../components/README.md) for exact ports. Source spectra and receiving-light assumptions determine conversion validity; a successful Radiance run alone does not validate estimated PPFD.
